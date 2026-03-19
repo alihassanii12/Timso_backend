@@ -13,32 +13,22 @@ console.log('🔥 DATABASE_URL exists:', !!process.env.DATABASE_URL);
 let pool;
 
 if (isProduction) {
-  // Production - Neon SSL force
+  // Production - Sirf DATABASE_URL use karo
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL environment variable is required');
   }
   
-  // IMPORTANT: SSL HARDCORE FIX
-  const connectionString = process.env.DATABASE_URL;
-  
-  // Ensure SSL parameter exists
-  const sslConnectionString = connectionString.includes('sslmode=') 
-    ? connectionString 
-    : connectionString + '?sslmode=require';
-  
-  console.log('🔌 Connecting with SSL forced');
-  
   pool = new Pool({
-    connectionString: sslConnectionString,
+    connectionString: process.env.DATABASE_URL,
     ssl: {
-      rejectUnauthorized: false,  // MUST be false for Neon
-      require: true,               // Force SSL
+      rejectUnauthorized: false,
+      require: true
     },
     connectionTimeoutMillis: 10000,
   });
   
 } else {
-  // Development - Local
+  // Development - Local PostgreSQL
   pool = new Pool({
     user: process.env.DB_USER || 'postgres',
     host: process.env.DB_HOST || 'localhost',
@@ -47,17 +37,5 @@ if (isProduction) {
     port: process.env.DB_PORT || 5432,
   });
 }
-
-// Test connection immediately
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error('❌ Database connection error:', err.message);
-    console.error('Error code:', err.code);
-    console.error('Full error:', err);
-  } else {
-    console.log('✅ Database connected successfully!');
-    release();
-  }
-});
 
 export default pool;
