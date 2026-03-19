@@ -13,25 +13,32 @@ console.log('🔥 DATABASE_URL exists:', !!process.env.DATABASE_URL);
 let pool;
 
 if (isProduction) {
-  // Production - Neon with proper SSL
+  // Production - Neon SSL force
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL environment variable is required');
   }
   
-  // IMPORTANT: SSL configuration sahi karo
+  // IMPORTANT: SSL HARDCORE FIX
+  const connectionString = process.env.DATABASE_URL;
+  
+  // Ensure SSL parameter exists
+  const sslConnectionString = connectionString.includes('sslmode=') 
+    ? connectionString 
+    : connectionString + '?sslmode=require';
+  
+  console.log('🔌 Connecting with SSL forced');
+  
   pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: sslConnectionString,
     ssl: {
-      rejectUnauthorized: false,  // Neon ke liye required
-      sslmode: 'require'           // SSL force karo
+      rejectUnauthorized: false,  // MUST be false for Neon
+      require: true,               // Force SSL
     },
     connectionTimeoutMillis: 10000,
   });
   
-  console.log('✅ SSL enabled for database connection');
-  
 } else {
-  // Development - Local (SSL一般不 required)
+  // Development - Local
   pool = new Pool({
     user: process.env.DB_USER || 'postgres',
     host: process.env.DB_HOST || 'localhost',
@@ -41,11 +48,12 @@ if (isProduction) {
   });
 }
 
-// Test connection
+// Test connection immediately
 pool.connect((err, client, release) => {
   if (err) {
     console.error('❌ Database connection error:', err.message);
     console.error('Error code:', err.code);
+    console.error('Full error:', err);
   } else {
     console.log('✅ Database connected successfully!');
     release();
