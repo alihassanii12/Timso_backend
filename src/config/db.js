@@ -1,41 +1,35 @@
-import pkg from "pg";
-import dotenv from 'dotenv';
+// config/database.js
+import { neon } from '@neondatabase/serverless';
 
-dotenv.config();
-
-const { Pool } = pkg;
-
-const isProduction = process.env.NODE_ENV === 'production';
+// Environment variables Vercel ne automatically set kar diye hain
+const connectionString = process.env.timso_db_POSTGRES_URL;
 
 console.log('🔥 Environment:', process.env.NODE_ENV);
-console.log('🔥 DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('🔥 Neon DB connected:', !!connectionString);
 
-let pool;
+// Neon serverless driver
+const sql = neon(connectionString);
 
-if (isProduction) {
-  // Production - Sirf DATABASE_URL use karo
-  if (!process.env.DATABASE_URL) {
-    throw new Error('DATABASE_URL environment variable is required');
+// Query helper
+export async function query(text, params) {
+  try {
+    // Neon automatically handles SSL and connection pooling
+    const result = await sql(text, ...params);
+    return { rows: result };
+  } catch (error) {
+    console.error('❌ Database error:', error);
+    throw error;
   }
-  
-  pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false,
-      require: true
-    },
-    connectionTimeoutMillis: 10000,
-  });
-  
-} else {
-  // Development - Local PostgreSQL
-  pool = new Pool({
-    user: process.env.DB_USER || 'postgres',
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_NAME || 'auth_db',
-    password: process.env.DB_PASSWORD || 'postgres123',
-    port: process.env.DB_PORT || 5432,
-  });
 }
 
-export default pool;
+// Test connection on startup
+(async () => {
+  try {
+    const result = await sql`SELECT NOW() as time`;
+    console.log('✅ Database connected:', result[0]?.time);
+  } catch (error) {
+    console.error('❌ Database connection failed:', error);
+  }
+})();
+
+export default { query };
