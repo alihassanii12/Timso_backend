@@ -15,6 +15,7 @@ import TeamRoutes         from "./routes/TeamRoutes.js";
 import taskRoutes         from "./routes/TaskRoutes.js";
 import AvatarRoutes       from "./routes/AvatarRoutes.js";
 import { activityRouter, notificationRouter } from "./routes/MiscRoutes.js";
+import corsMiddleware      from "./cors.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -59,8 +60,7 @@ const corsOptions = {
   optionsSuccessStatus: 200,
 };
 
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.use(corsMiddleware);
 
 app.use(morgan('dev'));
 app.use(cookieParser());
