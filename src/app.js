@@ -15,6 +15,7 @@ import TeamRoutes         from "./routes/TeamRoutes.js";
 import taskRoutes         from "./routes/TaskRoutes.js";
 import AvatarRoutes       from "./routes/AvatarRoutes.js";
 import { activityRouter, notificationRouter } from "./routes/MiscRoutes.js";
+import healthRoutes       from "./routes/healthRoutes.js";
 import corsMiddleware      from "./cors.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -80,6 +81,7 @@ app.use("/api/tasks",         taskRoutes);
 app.use("/api/avatar",        AvatarRoutes);
 app.use("/api/activity",      activityRouter);
 app.use("/api/notifications", notificationRouter);
+app.use('/api', healthRoutes);
 
 app.get('/health', (req, res) => {
   res.json({
