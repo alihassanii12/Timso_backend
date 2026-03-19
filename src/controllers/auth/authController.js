@@ -23,9 +23,7 @@ const generateOTP = () => {
 ───────────────────────────────────────────── */
 export const register = async (req, res) => {
   try {
-    // Frontend 'fullname' (lowercase n) bhejta hai — dono accept karo
-    const { email, username, password, fullname, fullName: fullNameAlt, role } = req.body;
-    const fullName = fullname || fullNameAlt || '';
+    const { email, username, password, fullName, role } = req.body;
 
     if (!email || !username || !password) {
       return res.status(400).json({ 
@@ -82,7 +80,7 @@ export const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // ── OTP generate karo ──
+    // ── OTP generate karo (token ki jagah) ──
     const otp = generateOTP();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
@@ -95,16 +93,12 @@ export const register = async (req, res) => {
       password: hashedPassword,
       fullName,
       role: userRole,
-      emailVerificationToken: otp,
-      emailVerificationExpires: otpExpires,
+      emailVerificationToken: otp,          // OTP store karo
+      emailVerificationExpires: otpExpires,  // 10 min expiry
     });
 
-    // ── OTP email bhejo — fail hone pe register nahi rokna ──
-    try {
-      await sendVerificationEmail(normalizedEmail, otp, fullName || username);
-    } catch (emailError) {
-      console.error("Email send failed (non-fatal):", emailError.message);
-    }
+    // ── OTP email bhejo ──
+    await sendVerificationEmail(normalizedEmail, otp, fullName || username);
 
     const accessToken = generateAccessToken(newUser);
     const refreshToken = generateRefreshToken();
@@ -131,32 +125,161 @@ export const register = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Registered successfully. OTP sent to your email.",
-      data: {
-        token: accessToken,   // frontend data.data.token dhundta hai
-      },
       user: {
-        id:            newUser.id,
-        email:         newUser.email,
-        username:      newUser.username,
-        fullName:      newUser.full_name || fullName,
-        role:          newUser.role || userRole,
-        emailVerified: false,
+        id: newUser.id,
+        email: newUser.email,
+        username: newUser.username,
+        fullName: newUser.full_name,
+        role: newUser.role,
+        emailVerified: false
       },
       accessToken,
+      // Frontend ko pata ho OTP verification zaroori hai
       requiresOtp: true,
     });
 
   } catch (error) {
-    console.error("Registration error:", error.message, error.stack);
+    console.error("Registration error:", error);
     res.status(500).json({ 
       success: false,
-      message: "Internal server error during registration",
-      ...(process.env.NODE_ENV !== 'production' && { debug: error.message })
+      message: "Internal server error during registration"
     });
   }
 };
 
+/* ─────────────────────────────────────────────
+   VERIFY EMAIL — OTP check
+───────────────────────────────────────────── */
+export const verifyEmail = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
 
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and OTP are required"
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // User dhundo
+    const user = await UserModel.findByEmail(normalizedEmail);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Pehle se verified?
+    if (user.email_verified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already verified"
+      });
+    }
+
+    // OTP match karo
+    if (user.email_verification_token !== otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP. Please check your email."
+      });
+    }
+
+    // OTP expire hua?
+    if (!user.email_verification_expires || user.email_verification_expires < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired. Please request a new one.",
+        expired: true
+      });
+    }
+
+    // ✅ Verify karo — token aur expiry clear karo
+    await UserModel.verifyEmail(user.id);
+
+    res.json({
+      success: true,
+      message: "Email verified successfully! You can now use your account."
+    });
+
+  } catch (error) {
+    console.error("OTP verification error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+};
+
+/* ─────────────────────────────────────────────
+   RESEND OTP
+───────────────────────────────────────────── */
+export const resendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required"
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await UserModel.findByEmail(normalizedEmail);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    if (user.email_verified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already verified"
+      });
+    }
+
+    // Rate limiting: last OTP se 1 minute guzra ho
+    if (
+      user.email_verification_expires &&
+      user.email_verification_expires > new Date(Date.now() - 9 * 60 * 1000) // 9 min pehle bheja tha
+    ) {
+      return res.status(429).json({
+        success: false,
+        message: "Please wait 1 minute before requesting a new OTP"
+      });
+    }
+
+    const newOtp = generateOTP();
+    const newExpires = new Date(Date.now() + 10 * 60 * 1000);
+
+    await UserModel.updateEmailVerificationToken(user.id, newOtp, newExpires);
+
+    await sendVerificationEmail(normalizedEmail, newOtp, user.full_name || user.username);
+
+    res.json({
+      success: true,
+      message: "New OTP sent to your email"
+    });
+
+  } catch (error) {
+    console.error("Resend OTP error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+};
+
+/* ─────────────────────────────────────────────
+   LOGIN
+───────────────────────────────────────────── */
 export const login = async (req, res) => {
   try {
     const { identifier, email, password } = req.body;
