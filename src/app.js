@@ -46,7 +46,6 @@ const corsOptions = {
       'http://localhost:3001',
       'http://127.0.0.1:3000',
       'https://timso.vercel.app',
-      'https://timso-lgo5jrs3q-devbench0-9860s-projects.vercel.app',
     ];
 
     if (allowed.includes(origin)) return callback(null, true);
