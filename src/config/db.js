@@ -1,4 +1,3 @@
-// config/database.js - Update karo
 import pkg from "pg";
 import dotenv from 'dotenv';
 
@@ -8,8 +7,8 @@ const { Pool } = pkg;
 
 const isProduction = process.env.NODE_ENV === 'production';
 
-console.log('Environment:', process.env.NODE_ENV);
-console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('🔥 Environment:', process.env.NODE_ENV);
+console.log('🔥 DATABASE_URL exists:', !!process.env.DATABASE_URL);
 
 let pool;
 
@@ -19,18 +18,20 @@ if (isProduction) {
     throw new Error('DATABASE_URL environment variable is required');
   }
   
+  // IMPORTANT: SSL configuration sahi karo
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-      rejectUnauthorized: false, // Neon ke liye required
-      sslmode: 'require'
+      rejectUnauthorized: false,  // Neon ke liye required
+      sslmode: 'require'           // SSL force karo
     },
-    // Connection timeout kam karo
-    connectionTimeoutMillis: 5000,
-    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
   });
+  
+  console.log('✅ SSL enabled for database connection');
+  
 } else {
-  // Development - Local
+  // Development - Local (SSL一般不 required)
   pool = new Pool({
     user: process.env.DB_USER || 'postgres',
     host: process.env.DB_HOST || 'localhost',
@@ -40,9 +41,15 @@ if (isProduction) {
   });
 }
 
-// Error handling
-pool.on('error', (err) => {
-  console.error('Unexpected database error:', err);
+// Test connection
+pool.connect((err, client, release) => {
+  if (err) {
+    console.error('❌ Database connection error:', err.message);
+    console.error('Error code:', err.code);
+  } else {
+    console.log('✅ Database connected successfully!');
+    release();
+  }
 });
 
 export default pool;
