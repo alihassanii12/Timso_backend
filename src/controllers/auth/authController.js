@@ -1,12 +1,11 @@
+// src/controllers/auth/authController.js
 import bcrypt from "bcryptjs";
 import validator from 'validator';
 import crypto from 'crypto';
-import pool from '../../config/db.js';
 import UserModel from "../../models/userModel.js";
 import { 
   generateAccessToken, 
-  generateRefreshToken,
-  verifyAccessToken 
+  generateRefreshToken 
 } from "../../utils/tokenUtils.js";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../../utils/emailService.js";
 
@@ -14,7 +13,6 @@ import { sendVerificationEmail, sendPasswordResetEmail } from "../../utils/email
    Helper: 6-digit OTP generate karo
 ───────────────────────────────────────────── */
 const generateOTP = () => {
-  // crypto se secure random 6-digit number
   return crypto.randomInt(100000, 999999).toString();
 };
 
@@ -25,6 +23,7 @@ export const register = async (req, res) => {
   try {
     const { email, username, password, fullName, role } = req.body;
 
+    // Validation
     if (!email || !username || !password) {
       return res.status(400).json({ 
         success: false,
@@ -62,6 +61,7 @@ export const register = async (req, res) => {
       });
     }
 
+    // Check existing user
     const existingUserByEmail = await UserModel.findByEmail(normalizedEmail);
     if (existingUserByEmail) {
       return res.status(400).json({ 
@@ -78,34 +78,36 @@ export const register = async (req, res) => {
       });
     }
 
+    // Hash password and generate OTP
     const hashedPassword = await bcrypt.hash(password, 12);
-
-    // ── OTP generate karo (token ki jagah) ──
     const otp = generateOTP();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     const validRoles = ['admin', 'user'];
     const userRole = validRoles.includes(role) ? role : 'user';
 
+    // Create user
     const newUser = await UserModel.create({
       email: normalizedEmail,
       username,
       password: hashedPassword,
       fullName,
       role: userRole,
-      emailVerificationToken: otp,          // OTP store karo
-      emailVerificationExpires: otpExpires,  // 10 min expiry
+      emailVerificationToken: otp,
+      emailVerificationExpires: otpExpires,
     });
 
-    // ── OTP email bhejo ──
+    // Send OTP email
     await sendVerificationEmail(normalizedEmail, otp, fullName || username);
 
+    // Generate tokens
     const accessToken = generateAccessToken(newUser);
     const refreshToken = generateRefreshToken();
     await UserModel.updateRefreshToken(newUser.id, refreshToken);
 
     const isProduction = process.env.NODE_ENV === 'production';
 
+    // Set cookies
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: isProduction,
@@ -122,6 +124,7 @@ export const register = async (req, res) => {
       path: '/'
     });
 
+    // Send response
     res.status(201).json({
       success: true,
       message: "Registered successfully. OTP sent to your email.",
@@ -134,7 +137,6 @@ export const register = async (req, res) => {
         emailVerified: false
       },
       accessToken,
-      // Frontend ko pata ho OTP verification zaroori hai
       requiresOtp: true,
     });
 
@@ -162,9 +164,8 @@ export const verifyEmail = async (req, res) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-
-    // User dhundo
     const user = await UserModel.findByEmail(normalizedEmail);
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -172,7 +173,6 @@ export const verifyEmail = async (req, res) => {
       });
     }
 
-    // Pehle se verified?
     if (user.email_verified) {
       return res.status(400).json({
         success: false,
@@ -180,7 +180,6 @@ export const verifyEmail = async (req, res) => {
       });
     }
 
-    // OTP match karo
     if (user.email_verification_token !== otp) {
       return res.status(400).json({
         success: false,
@@ -188,7 +187,6 @@ export const verifyEmail = async (req, res) => {
       });
     }
 
-    // OTP expire hua?
     if (!user.email_verification_expires || user.email_verification_expires < new Date()) {
       return res.status(400).json({
         success: false,
@@ -197,7 +195,6 @@ export const verifyEmail = async (req, res) => {
       });
     }
 
-    // ✅ Verify karo — token aur expiry clear karo
     await UserModel.verifyEmail(user.id);
 
     res.json({
@@ -245,10 +242,10 @@ export const resendOtp = async (req, res) => {
       });
     }
 
-    // Rate limiting: last OTP se 1 minute guzra ho
+    // Rate limiting
     if (
       user.email_verification_expires &&
-      user.email_verification_expires > new Date(Date.now() - 9 * 60 * 1000) // 9 min pehle bheja tha
+      user.email_verification_expires > new Date(Date.now() - 9 * 60 * 1000)
     ) {
       return res.status(429).json({
         success: false,
@@ -260,7 +257,6 @@ export const resendOtp = async (req, res) => {
     const newExpires = new Date(Date.now() + 10 * 60 * 1000);
 
     await UserModel.updateEmailVerificationToken(user.id, newOtp, newExpires);
-
     await sendVerificationEmail(normalizedEmail, newOtp, user.full_name || user.username);
 
     res.json({
@@ -356,7 +352,6 @@ export const login = async (req, res) => {
         role: user.role
       },
       accessToken,
-      // Agar email verify nahi to frontend ko pata chale
       requiresOtp: !user.email_verified,
     });
 
@@ -433,7 +428,7 @@ export const refreshToken = async (req, res) => {
 export const logout = async (req, res) => {
   try {
     const { refreshToken } = req.cookies;
-    if (refreshToken) {
+    if (refreshToken && req.user) {
       await UserModel.updateRefreshToken(req.user.id, null);
     }
 
@@ -471,14 +466,13 @@ export const getCurrentUser = async (req, res) => {
     res.json({
       success: true,
       user: {
-        id:              user.id,
-        email:           user.email,
-        username:        user.username,
-        fullName:        user.full_name,
-        full_name:       user.full_name,
-        role:            user.role,
-        emailVerified:   user.email_verified,
-        createdAt:       user.created_at,
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        fullName: user.full_name,
+        role: user.role,
+        emailVerified: user.email_verified,
+        createdAt: user.created_at,
         profile_picture: user.profile_picture || null,
       }
     });
@@ -543,9 +537,6 @@ export const changePassword = async (req, res) => {
 
 /* ─────────────────────────────────────────────
    FORGOT PASSWORD — Step 1
-   OTP generate karo aur email pe bhejo
-   POST /api/auth/forgot-password
-   Body: { email }
 ───────────────────────────────────────────── */
 export const forgotPassword = async (req, res) => {
   try {
@@ -561,8 +552,7 @@ export const forgotPassword = async (req, res) => {
     const normalizedEmail = email.toLowerCase().trim();
     const user = await UserModel.findByEmail(normalizedEmail);
 
-    // Security: even if user not found, same response dو
-    // (taake email enumeration attack na ho)
+    // Security: same response even if user not found
     if (!user) {
       return res.json({
         success: true,
@@ -570,7 +560,7 @@ export const forgotPassword = async (req, res) => {
       });
     }
 
-    // Rate limiting — agar 1 minute pehle OTP bheja tha to rokو
+    // Rate limiting
     if (
       user.password_reset_expires &&
       user.password_reset_expires > new Date(Date.now() - 9 * 60 * 1000)
@@ -582,12 +572,9 @@ export const forgotPassword = async (req, res) => {
     }
 
     const otp = generateOTP();
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
-    // DB mein save karo
     await UserModel.savePasswordResetOtp(user.id, otp, otpExpires);
-
-    // Email bhejo
     await sendPasswordResetEmail(normalizedEmail, otp, user.full_name || user.username);
 
     res.json({
@@ -606,9 +593,6 @@ export const forgotPassword = async (req, res) => {
 
 /* ─────────────────────────────────────────────
    VERIFY OTP — Step 2
-   Sirf OTP check karo, password mat badlo abhi
-   POST /api/auth/verify-otp
-   Body: { email, otp }
 ───────────────────────────────────────────── */
 export const verifyOtp = async (req, res) => {
   try {
@@ -646,7 +630,6 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    // OTP sahi hai — frontend step 3 pe ja sakta hai
     res.json({
       success: true,
       message: "OTP verified successfully"
@@ -663,9 +646,6 @@ export const verifyOtp = async (req, res) => {
 
 /* ─────────────────────────────────────────────
    RESET PASSWORD — Step 3
-   OTP dobara verify karo aur password badlo
-   POST /api/auth/reset-password
-   Body: { email, otp, password, confirmPassword }
 ───────────────────────────────────────────── */
 export const resetPassword = async (req, res) => {
   try {
@@ -702,7 +682,7 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // OTP dobara verify karo (tamper protection)
+    // Verify OTP again
     if (!user.password_reset_token || user.password_reset_token !== otp) {
       return res.status(400).json({
         success: false,
@@ -718,11 +698,8 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // Password hash karo aur save karo
     const hashedPassword = await bcrypt.hash(password, 12);
     await UserModel.updatePassword(user.id, hashedPassword);
-
-    // OTP clear karo
     await UserModel.clearPasswordResetOtp(user.id);
 
     res.json({
