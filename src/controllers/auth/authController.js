@@ -109,7 +109,7 @@ export const register = async (req, res) => {
 
     // Set cookies
     res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
+      httpOnly: false,
       secure: isProduction,
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -325,7 +325,7 @@ export const login = async (req, res) => {
     const isProduction = process.env.NODE_ENV === 'production';
 
     res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
+      httpOnly: false,
       secure: isProduction,
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -393,7 +393,7 @@ export const refreshToken = async (req, res) => {
     const isProduction = process.env.NODE_ENV === 'production';
 
     res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
+      httpOnly: false,
       secure: isProduction,
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
