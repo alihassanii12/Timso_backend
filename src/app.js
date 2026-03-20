@@ -1,5 +1,4 @@
 import express        from "express";
-import cors           from "cors";
 import helmet         from "helmet";
 import morgan         from "morgan";
 import cookieParser   from "cookie-parser";
@@ -15,7 +14,7 @@ import TeamRoutes         from "./routes/TeamRoutes.js";
 import taskRoutes         from "./routes/TaskRoutes.js";
 import AvatarRoutes       from "./routes/AvatarRoutes.js";
 import { activityRouter, notificationRouter } from "./routes/MiscRoutes.js";
-import corsMiddleware      from "./cors.js";
+import corsMiddleware     from "./cors.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -36,30 +35,8 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-/* ── CORS ── */
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-
-    const allowed = [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://127.0.0.1:3000',
-      'https://timso.vercel.app',
-    ];
-
-    if (allowed.includes(origin)) return callback(null, true);
-    if (origin.endsWith('.vercel.app')) return callback(null, true);
-
-    console.warn(`CORS blocked: ${origin}`);
-    callback(new Error(`CORS: ${origin} not allowed`));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  optionsSuccessStatus: 200,
-};
-
+/* ── CORS — preflight + all requests ── */
+app.options('*', corsMiddleware);
 app.use(corsMiddleware);
 
 app.use(morgan('dev'));
