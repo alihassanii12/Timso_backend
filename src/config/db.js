@@ -10,7 +10,7 @@ if (!connectionString) {
 const sql = neon(connectionString);
 
 const db = {
-  // Tagged template method
+  // Tagged template method — sql`SELECT * FROM users WHERE id = ${id}`
   query: async (strings, ...values) => {
     try {
       const result = await sql(strings, ...values);
@@ -20,13 +20,12 @@ const db = {
       throw error;
     }
   },
-  
-  // ✅ IMPORTANT: Raw method for traditional $1, $2 placeholders
-  raw: async (text, params) => {
+
+  // ✅ FIXED: Raw method for traditional $1, $2 placeholders
+  raw: async (text, params = []) => {
     try {
-      // Neon's sql function accepts template strings or raw strings with params
-      const result = await sql(text, ...params);
-      return { rows: result };
+      const result = await sql.query(text, params);
+      return { rows: result.rows ?? result };
     } catch (error) {
       console.error('❌ Database error in raw query:', error);
       console.error('Query:', text);
@@ -40,7 +39,7 @@ const db = {
 (async () => {
   try {
     const result = await sql`SELECT NOW() as time`;
-    console.log('✅ Database connected:', result[0]?.time);
+    console.log('✅ Neon DB connected:', result[0]?.time);
   } catch (error) {
     console.error('❌ Database connection failed:', error.message);
   }
