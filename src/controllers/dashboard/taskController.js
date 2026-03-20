@@ -1,8 +1,17 @@
+// ✅ CORRECT import - use db instead of pool
 import TaskModel from '../../models/Taskmodel.js';
-import pool      from '../../config/db.js';
+import db from '../../config/db.js';  // Changed from pool to db
 
+// ✅ Fixed tryLog function to use db.raw() for dynamic query
 const tryLog = async (userId, action) => {
-  try { await pool.query(`INSERT INTO activity_log (user_id, action, icon, created_at) VALUES ($1, $2, '📋', NOW())`, [userId, action]); } catch {}
+  try { 
+    await db.raw(
+      `INSERT INTO activity_log (user_id, action, icon, created_at) VALUES ($1, $2, '📋', NOW())`,
+      [userId, action]
+    ); 
+  } catch(err) {
+    console.error('Activity log error:', err);
+  }
 };
 
 // GET /api/tasks/users — admin: dropdown ke liye users list
@@ -11,6 +20,7 @@ export const getUsersForAssign = async (req, res) => {
     const users = await TaskModel.getUsersForAssign();
     return res.json({ success: true, data: { users } });
   } catch (err) {
+    console.error('getUsersForAssign error:', err);
     return res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -30,6 +40,7 @@ export const getTasks = async (req, res) => {
     const stats = await TaskModel.getStats(isAdmin ? null : req.user.id);
     return res.json({ success: true, data: { tasks, stats } });
   } catch (err) {
+    console.error('getTasks error:', err);
     return res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -46,14 +57,16 @@ export const createTask = async (req, res) => {
       assignedTo: assigned_to, assignedBy: req.user.id,
     });
 
-    // Notify assigned user
+    // ✅ Fixed notification query to use db.raw()
     try {
-      await pool.query(
+      await db.raw(
         `INSERT INTO notifications (user_id, type, title, message, data)
          VALUES ($1, 'task_assigned', 'New Task Assigned', $2, $3::jsonb)`,
         [assigned_to, `You have been assigned: ${title}`, JSON.stringify({ task_id: task.id })]
       );
-    } catch {}
+    } catch(err) {
+      console.error('Notification error:', err);
+    }
 
     await tryLog(req.user.id, `assigned task "${title}" to user #${assigned_to}`);
     return res.status(201).json({ success: true, message: 'Task created', data: { task } });
@@ -94,6 +107,8 @@ export const updateTask = async (req, res) => {
       title, description, priority, dueDate: due_date, status, assignedTo: assigned_to,
     });
     if (!updated) return res.status(404).json({ success: false, message: 'Task not found' });
+    
+    await tryLog(req.user.id, `updated task "${title || updated.title}"`);
     return res.json({ success: true, message: 'Task updated', data: { task: updated } });
   } catch (err) {
     console.error('updateTask error:', err);
@@ -104,8 +119,13 @@ export const updateTask = async (req, res) => {
 // DELETE /api/tasks/:id — admin only
 export const deleteTask = async (req, res) => {
   try {
+    const task = await TaskModel.getById(req.params.id);
     const deleted = await TaskModel.delete(req.params.id);
     if (!deleted) return res.status(404).json({ success: false, message: 'Task not found' });
+    
+    if (task) {
+      await tryLog(req.user.id, `deleted task "${task.title}"`);
+    }
     return res.json({ success: true, message: 'Task deleted' });
   } catch (err) {
     console.error('deleteTask error:', err);
