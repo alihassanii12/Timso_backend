@@ -35,8 +35,8 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-/* ── CORS — preflight + all requests ── */
-app.options('*', corsMiddleware);
+/* ── CORS — Express v5 compatible ── */
+app.options('/(.*)', corsMiddleware);   // ✅ wildcard fix for Express v5
 app.use(corsMiddleware);
 
 app.use(morgan('dev'));
