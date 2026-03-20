@@ -9,12 +9,28 @@ import {
 } from "../../utils/tokenUtils.js";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../../utils/emailService.js";
 
-/* ─────────────────────────────────────────────
-   Helper: 6-digit OTP generate karo
-───────────────────────────────────────────── */
 const generateOTP = () => {
   return crypto.randomInt(100000, 999999).toString();
 };
+
+/* ─────────────────────────────────────────────
+   COOKIE OPTIONS — cross-origin fix
+───────────────────────────────────────────── */
+const getAccessTokenCookieOptions = () => ({
+  httpOnly: false,   // frontend JS read kar sake localStorage fallback ke liye
+  secure: true,      // SameSite=none ke liye secure zaroori hai
+  sameSite: 'none',  // cross-origin (frontend alag domain) ke liye
+  maxAge: 15 * 60 * 1000, // 15 minutes
+  path: '/'
+});
+
+const getRefreshTokenCookieOptions = () => ({
+  httpOnly: true,
+  secure: true,
+  sameSite: 'none',  // cross-origin ke liye
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  path: '/api/auth/refresh-token'
+});
 
 /* ─────────────────────────────────────────────
    REGISTER
@@ -23,7 +39,6 @@ export const register = async (req, res) => {
   try {
     const { email, username, password, fullName, role } = req.body;
 
-    // Validation
     if (!email || !username || !password) {
       return res.status(400).json({ 
         success: false,
@@ -61,7 +76,6 @@ export const register = async (req, res) => {
       });
     }
 
-    // Check existing user
     const existingUserByEmail = await UserModel.findByEmail(normalizedEmail);
     if (existingUserByEmail) {
       return res.status(400).json({ 
@@ -78,15 +92,13 @@ export const register = async (req, res) => {
       });
     }
 
-    // Hash password and generate OTP
     const hashedPassword = await bcrypt.hash(password, 12);
     const otp = generateOTP();
-    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
     const validRoles = ['admin', 'user'];
     const userRole = validRoles.includes(role) ? role : 'user';
 
-    // Create user
     const newUser = await UserModel.create({
       email: normalizedEmail,
       username,
@@ -97,34 +109,16 @@ export const register = async (req, res) => {
       emailVerificationExpires: otpExpires,
     });
 
-    // Send OTP email
     await sendVerificationEmail(normalizedEmail, otp, fullName || username);
 
-    // Generate tokens
     const accessToken = generateAccessToken(newUser);
     const refreshToken = generateRefreshToken();
     await UserModel.updateRefreshToken(newUser.id, refreshToken);
 
-    const isProduction = process.env.NODE_ENV === 'production';
+    // ✅ cross-origin cookie options
+    res.cookie('refreshToken', refreshToken, getRefreshTokenCookieOptions());
+    res.cookie('accessToken', accessToken, getAccessTokenCookieOptions());
 
-    // Set cookies
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: false,
-      secure: isProduction,
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/api/auth/refresh-token'
-    });
-
-    res.cookie('accessToken', accessToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'lax',
-      maxAge: 15 * 60 * 1000,
-      path: '/'
-    });
-
-    // Send response
     res.status(201).json({
       success: true,
       message: "Registered successfully. OTP sent to your email.",
@@ -150,7 +144,7 @@ export const register = async (req, res) => {
 };
 
 /* ─────────────────────────────────────────────
-   VERIFY EMAIL — OTP check
+   VERIFY EMAIL
 ───────────────────────────────────────────── */
 export const verifyEmail = async (req, res) => {
   try {
@@ -242,7 +236,6 @@ export const resendOtp = async (req, res) => {
       });
     }
 
-    // Rate limiting
     if (
       user.email_verification_expires &&
       user.email_verification_expires > new Date(Date.now() - 9 * 60 * 1000)
@@ -322,23 +315,9 @@ export const login = async (req, res) => {
     const refreshToken = generateRefreshToken();
     await UserModel.updateRefreshToken(user.id, refreshToken);
 
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: false,
-      secure: isProduction,
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/api/auth/refresh-token'
-    });
-
-    res.cookie('accessToken', accessToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'lax',
-      maxAge: 15 * 60 * 1000,
-      path: '/'
-    });
+    // ✅ cross-origin cookie options
+    res.cookie('refreshToken', refreshToken, getRefreshTokenCookieOptions());
+    res.cookie('accessToken', accessToken, getAccessTokenCookieOptions());
 
     res.json({
       success: true,
@@ -390,23 +369,9 @@ export const refreshToken = async (req, res) => {
     const newRefreshToken = generateRefreshToken();
     await UserModel.updateRefreshToken(user.id, newRefreshToken);
 
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: false,
-      secure: isProduction,
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/api/auth/refresh-token'
-    });
-
-    res.cookie('accessToken', newAccessToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'lax',
-      maxAge: 15 * 60 * 1000,
-      path: '/'
-    });
+    // ✅ cross-origin cookie options
+    res.cookie('refreshToken', newRefreshToken, getRefreshTokenCookieOptions());
+    res.cookie('accessToken', newAccessToken, getAccessTokenCookieOptions());
 
     res.json({
       success: true,
@@ -432,8 +397,8 @@ export const logout = async (req, res) => {
       await UserModel.updateRefreshToken(req.user.id, null);
     }
 
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
+    res.clearCookie('accessToken', { path: '/', sameSite: 'none', secure: true });
+    res.clearCookie('refreshToken', { path: '/api/auth/refresh-token', sameSite: 'none', secure: true });
 
     res.json({
       success: true,
@@ -536,7 +501,7 @@ export const changePassword = async (req, res) => {
 };
 
 /* ─────────────────────────────────────────────
-   FORGOT PASSWORD — Step 1
+   FORGOT PASSWORD
 ───────────────────────────────────────────── */
 export const forgotPassword = async (req, res) => {
   try {
@@ -552,7 +517,6 @@ export const forgotPassword = async (req, res) => {
     const normalizedEmail = email.toLowerCase().trim();
     const user = await UserModel.findByEmail(normalizedEmail);
 
-    // Security: same response even if user not found
     if (!user) {
       return res.json({
         success: true,
@@ -560,7 +524,6 @@ export const forgotPassword = async (req, res) => {
       });
     }
 
-    // Rate limiting
     if (
       user.password_reset_expires &&
       user.password_reset_expires > new Date(Date.now() - 9 * 60 * 1000)
@@ -592,7 +555,7 @@ export const forgotPassword = async (req, res) => {
 };
 
 /* ─────────────────────────────────────────────
-   VERIFY OTP — Step 2
+   VERIFY OTP
 ───────────────────────────────────────────── */
 export const verifyOtp = async (req, res) => {
   try {
@@ -645,7 +608,7 @@ export const verifyOtp = async (req, res) => {
 };
 
 /* ─────────────────────────────────────────────
-   RESET PASSWORD — Step 3
+   RESET PASSWORD
 ───────────────────────────────────────────── */
 export const resetPassword = async (req, res) => {
   try {
@@ -682,7 +645,6 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    // Verify OTP again
     if (!user.password_reset_token || user.password_reset_token !== otp) {
       return res.status(400).json({
         success: false,
