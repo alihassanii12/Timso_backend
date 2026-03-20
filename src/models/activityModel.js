@@ -1,21 +1,23 @@
-import pool from '../config/db.js';
+// ✅ CORRECT import - use db instead of pool
+import db from '../config/db.js';
 
 class ActivityModel {
 
   // Naya activity log entry
   static async log(userId, action, icon = '📋') {
-    const query = `
+    // ✅ Use tagged template syntax with db.query
+    const result = await db.query`
       INSERT INTO activity_log (user_id, action, icon, created_at)
-      VALUES ($1, $2, $3, NOW())
+      VALUES (${userId}, ${action}, ${icon}, NOW())
       RETURNING *
     `;
-    const result = await pool.query(query, [userId, action, icon]);
     return result.rows[0];
   }
 
   // Recent activity — dashboard ke liye (last 20)
   static async getRecent(limit = 20) {
-    const query = `
+    // ✅ Use tagged template syntax with parameter
+    const result = await db.query`
       SELECT
         al.id,
         al.action,
@@ -28,21 +30,20 @@ class ActivityModel {
       FROM activity_log al
       LEFT JOIN users u ON u.id = al.user_id
       ORDER BY al.created_at DESC
-      LIMIT $1
+      LIMIT ${limit}
     `;
-    const result = await pool.query(query, [limit]);
     return result.rows;
   }
 
   // Ek user ki activity
   static async getByUser(userId, limit = 10) {
-    const query = `
+    // ✅ Use tagged template syntax with multiple parameters
+    const result = await db.query`
       SELECT * FROM activity_log
-      WHERE user_id = $1
+      WHERE user_id = ${userId}
       ORDER BY created_at DESC
-      LIMIT $2
+      LIMIT ${limit}
     `;
-    const result = await pool.query(query, [userId, limit]);
     return result.rows;
   }
 }

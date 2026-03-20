@@ -1,16 +1,17 @@
-import pool from '../config/db.js';
+// ✅ CORRECT import - use db instead of pool
+import db from '../config/db.js';
 
 class DaySwapModel {
   
   // Create a new swap request
   static async create(requesterId, fromDate, toDate, reason = '') {
     try {
-      const query = `
+      // ✅ Use tagged template syntax with db.query
+      const result = await db.query`
         INSERT INTO day_swaps (requester_id, from_date, to_date, reason, status, created_at)
-        VALUES ($1, $2, $3, $4, 'pending', NOW())
+        VALUES (${requesterId}, ${fromDate}, ${toDate}, ${reason}, 'pending', NOW())
         RETURNING *
       `;
-      const result = await pool.query(query, [requesterId, fromDate, toDate, reason]);
       return result.rows[0];
     } catch (error) {
       console.error('Error in DaySwapModel.create:', error);
@@ -21,12 +22,12 @@ class DaySwapModel {
   // Get swap requests by user
   static async getByUser(userId) {
     try {
-      const query = `
+      // ✅ Use tagged template syntax
+      const result = await db.query`
         SELECT * FROM day_swaps 
-        WHERE requester_id = $1 
+        WHERE requester_id = ${userId} 
         ORDER BY created_at DESC
       `;
-      const result = await pool.query(query, [userId]);
       return result.rows;
     } catch (error) {
       console.error('Error in DaySwapModel.getByUser:', error);
@@ -37,7 +38,8 @@ class DaySwapModel {
   // Get pending swap requests
   static async getPending() {
     try {
-      const query = `
+      // ✅ No parameters needed, just a simple query
+      const result = await db.query`
         SELECT 
           ds.*,
           u.full_name as requester_name,
@@ -48,7 +50,6 @@ class DaySwapModel {
         WHERE ds.status = 'pending'
         ORDER BY ds.created_at ASC
       `;
-      const result = await pool.query(query);
       return result.rows;
     } catch (error) {
       console.error('Error in DaySwapModel.getPending:', error);
@@ -59,16 +60,16 @@ class DaySwapModel {
   // Get swap request by ID
   static async getById(swapId) {
     try {
-      const query = `
+      // ✅ Use tagged template syntax
+      const result = await db.query`
         SELECT 
           ds.*,
           u.full_name as requester_name,
           u.email as requester_email
         FROM day_swaps ds
         JOIN users u ON ds.requester_id = u.id
-        WHERE ds.id = $1
+        WHERE ds.id = ${swapId}
       `;
-      const result = await pool.query(query, [swapId]);
       return result.rows[0];
     } catch (error) {
       console.error('Error in DaySwapModel.getById:', error);
@@ -79,13 +80,13 @@ class DaySwapModel {
   // Approve swap request
   static async approve(swapId, reviewerId) {
     try {
-      const query = `
+      // ✅ Use tagged template syntax
+      const result = await db.query`
         UPDATE day_swaps 
-        SET status = 'approved', reviewed_by = $2, reviewed_at = NOW()
-        WHERE id = $1 AND status = 'pending'
+        SET status = 'approved', reviewed_by = ${reviewerId}, reviewed_at = NOW()
+        WHERE id = ${swapId} AND status = 'pending'
         RETURNING *
       `;
-      const result = await pool.query(query, [swapId, reviewerId]);
       return result.rows[0];
     } catch (error) {
       console.error('Error in DaySwapModel.approve:', error);
@@ -96,13 +97,13 @@ class DaySwapModel {
   // Decline swap request
   static async decline(swapId, reviewerId) {
     try {
-      const query = `
+      // ✅ Use tagged template syntax
+      const result = await db.query`
         UPDATE day_swaps 
-        SET status = 'declined', reviewed_by = $2, reviewed_at = NOW()
-        WHERE id = $1 AND status = 'pending'
+        SET status = 'declined', reviewed_by = ${reviewerId}, reviewed_at = NOW()
+        WHERE id = ${swapId} AND status = 'pending'
         RETURNING *
       `;
-      const result = await pool.query(query, [swapId, reviewerId]);
       return result.rows[0];
     } catch (error) {
       console.error('Error in DaySwapModel.decline:', error);
@@ -113,7 +114,8 @@ class DaySwapModel {
   // Get all swap requests (admin)
   static async getAll(limit = 50) {
     try {
-      const query = `
+      // ✅ Use tagged template syntax
+      const result = await db.query`
         SELECT 
           ds.*,
           u.full_name as requester_name,
@@ -121,9 +123,8 @@ class DaySwapModel {
         FROM day_swaps ds
         JOIN users u ON ds.requester_id = u.id
         ORDER BY ds.created_at DESC
-        LIMIT $1
+        LIMIT ${limit}
       `;
-      const result = await pool.query(query, [limit]);
       return result.rows;
     } catch (error) {
       console.error('Error in DaySwapModel.getAll:', error);
@@ -134,7 +135,8 @@ class DaySwapModel {
   // Get swap statistics for analytics
   static async getStats() {
     try {
-      const query = `
+      // ✅ Use tagged template syntax
+      const result = await db.query`
         SELECT 
           COUNT(*) as total_requests,
           COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_requests,
@@ -143,7 +145,6 @@ class DaySwapModel {
           COUNT(DISTINCT requester_id) as unique_requesters
         FROM day_swaps
       `;
-      const result = await pool.query(query);
       return result.rows[0];
     } catch (error) {
       console.error('Error in DaySwapModel.getStats:', error);
@@ -161,17 +162,17 @@ class DaySwapModel {
   // Get monthly swap statistics
   static async getMonthlyStats(year, month) {
     try {
-      const query = `
+      // ✅ Use tagged template syntax
+      const result = await db.query`
         SELECT 
           DATE_TRUNC('month', created_at) as month,
           COUNT(*) as total,
           COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved
         FROM day_swaps
-        WHERE EXTRACT(YEAR FROM created_at) = $1 
-          AND EXTRACT(MONTH FROM created_at) = $2
+        WHERE EXTRACT(YEAR FROM created_at) = ${year} 
+          AND EXTRACT(MONTH FROM created_at) = ${month}
         GROUP BY DATE_TRUNC('month', created_at)
       `;
-      const result = await pool.query(query, [year, month]);
       return result.rows[0] || { total: 0, approved: 0 };
     } catch (error) {
       console.error('Error in DaySwapModel.getMonthlyStats:', error);
@@ -182,16 +183,16 @@ class DaySwapModel {
   // Check if dates are available for swap
   static async checkAvailability(userId, fromDate, toDate) {
     try {
-      const query = `
+      // ✅ Use tagged template syntax
+      const result = await db.query`
         SELECT * FROM day_swaps 
-        WHERE requester_id = $1 
+        WHERE requester_id = ${userId} 
           AND (
-            (from_date <= $2 AND to_date >= $2) OR
-            (from_date <= $3 AND to_date >= $3)
+            (from_date <= ${fromDate} AND to_date >= ${fromDate}) OR
+            (from_date <= ${toDate} AND to_date >= ${toDate})
           )
           AND status IN ('pending', 'approved')
       `;
-      const result = await pool.query(query, [userId, fromDate, toDate]);
       return result.rows.length === 0; // true if available
     } catch (error) {
       console.error('Error in DaySwapModel.checkAvailability:', error);
