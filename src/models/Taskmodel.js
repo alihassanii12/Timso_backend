@@ -1,4 +1,4 @@
-// ✅ CORRECT import - use db from config
+// ✅ CORRECT import
 import db from '../config/db.js';
 
 class TaskModel {
@@ -18,34 +18,13 @@ class TaskModel {
     }
   }
 
-  // Saari tasks — admin ke liye (using raw for dynamic conditions)
+  // Saari tasks — simplified approach using raw for dynamic conditions
   static async getAll(filters = {}) {
     try {
       const { assignedTo, assignedBy, status, priority } = filters;
-      const conditions = [];
-      const values = [];
-      let i = 1;
-
-      if (assignedTo) { 
-        conditions.push(`t.assigned_to = $${i++}`); 
-        values.push(assignedTo); 
-      }
-      if (assignedBy) { 
-        conditions.push(`t.assigned_by = $${i++}`); 
-        values.push(assignedBy); 
-      }
-      if (status) { 
-        conditions.push(`t.status = $${i++}`); 
-        values.push(status); 
-      }
-      if (priority) { 
-        conditions.push(`t.priority = $${i++}`); 
-        values.push(priority); 
-      }
-
-      const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-
-      const query = `
+      
+      // Base query with all joins
+      let query = `
         SELECT
           t.*,
           u1.full_name       AS assigned_to_name,
@@ -57,7 +36,37 @@ class TaskModel {
         FROM tasks t
         JOIN users u1 ON u1.id = t.assigned_to
         JOIN users u2 ON u2.id = t.assigned_by
-        ${where}
+      `;
+      
+      // Build WHERE conditions dynamically
+      const conditions = [];
+      const values = [];
+      let paramIndex = 1;
+      
+      if (assignedTo) {
+        conditions.push(`t.assigned_to = $${paramIndex++}`);
+        values.push(assignedTo);
+      }
+      if (assignedBy) {
+        conditions.push(`t.assigned_by = $${paramIndex++}`);
+        values.push(assignedBy);
+      }
+      if (status) {
+        conditions.push(`t.status = $${paramIndex++}`);
+        values.push(status);
+      }
+      if (priority) {
+        conditions.push(`t.priority = $${paramIndex++}`);
+        values.push(priority);
+      }
+      
+      // Add WHERE clause if conditions exist
+      if (conditions.length > 0) {
+        query += ` WHERE ${conditions.join(' AND ')}`;
+      }
+      
+      // Add ORDER BY
+      query += `
         ORDER BY
           CASE t.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
           CASE t.status   WHEN 'todo' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,
@@ -65,7 +74,7 @@ class TaskModel {
           t.created_at DESC
       `;
       
-      // ✅ Use raw for dynamic query with $1, $2 placeholders
+      // ✅ Use raw for dynamic query
       const result = await db.raw(query, values);
       return result.rows;
     } catch (error) {
@@ -108,7 +117,8 @@ class TaskModel {
     try {
       const result = await db.query`
         SELECT t.*,
-          u1.full_name AS assigned_to_name, u1.username AS assigned_to_username,
+          u1.full_name AS assigned_to_name, 
+          u1.username AS assigned_to_username,
           u1.profile_picture AS assigned_to_picture,
           u2.full_name AS assigned_by_name
         FROM tasks t
@@ -139,48 +149,47 @@ class TaskModel {
     }
   }
 
-  // Full update — admin (using raw for dynamic updates)
+  // Full update — using raw for dynamic updates
   static async update(id, { title, description, priority, dueDate, status, assignedTo }) {
     try {
       const updates = [];
       const values = [];
-      let i = 1;
+      let paramIndex = 1;
 
       if (title !== undefined) { 
-        updates.push(`title = $${i++}`); 
+        updates.push(`title = $${paramIndex++}`); 
         values.push(title); 
       }
       if (description !== undefined) { 
-        updates.push(`description = $${i++}`); 
+        updates.push(`description = $${paramIndex++}`); 
         values.push(description); 
       }
       if (priority !== undefined) { 
-        updates.push(`priority = $${i++}`); 
+        updates.push(`priority = $${paramIndex++}`); 
         values.push(priority); 
       }
       if (dueDate !== undefined) { 
-        updates.push(`due_date = $${i++}`); 
+        updates.push(`due_date = $${paramIndex++}`); 
         values.push(dueDate || null); 
       }
       if (status !== undefined) { 
-        updates.push(`status = $${i++}`); 
+        updates.push(`status = $${paramIndex++}`); 
         values.push(status); 
       }
       if (assignedTo !== undefined) { 
-        updates.push(`assigned_to = $${i++}`); 
+        updates.push(`assigned_to = $${paramIndex++}`); 
         values.push(assignedTo); 
       }
       
       if (updates.length === 0) {
-        return null; // Nothing to update
+        return null;
       }
       
       updates.push(`updated_at = NOW()`);
       values.push(id);
       
-      const query = `UPDATE tasks SET ${updates.join(', ')} WHERE id = $${values.length} RETURNING *`;
+      const query = `UPDATE tasks SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
       
-      // ✅ Use raw for dynamic update query
       const result = await db.raw(query, values);
       return result.rows[0];
     } catch (error) {
