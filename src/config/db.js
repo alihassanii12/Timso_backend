@@ -9,36 +9,19 @@ if (!connectionString) {
 
 const sql = neon(connectionString);
 
-// ✅ Named export — import { query } kaam karega
-// Neon v2 mein sql.query(text, params) use karo
-export const query = async (text, params) => {
-  try {
-    // params undefined ya empty ho to bhi handle karo
-    const result = await sql.query(text, params || []);
-    // Neon sql.query rows array return karta hai directly
-    // { rows: [...] } format mein wrap karo
-    if (Array.isArray(result)) {
-      return { rows: result };
-    }
-    if (result && result.rows) {
-      return result;
-    }
-    return { rows: result || [] };
-  } catch (error) {
-    console.error('❌ Database error:', error);
-    console.error('Query:', text);
-    console.error('Params:', params);
-    throw error;
-  }
+// ✅ Tagged template export — userModel query`...` syntax use karta hai
+export const query = (strings, ...values) => {
+  return sql(strings, ...values).then(result => ({ rows: result }));
 };
 
-// ✅ raw — same as query, backward compat
-export const raw = query;
+// ✅ raw — $1 $2 wali queries ke liye
+export const raw = async (text, params = []) => {
+  const result = await sql.query(text, params);
+  return { rows: result.rows ?? result };
+};
 
-// ✅ tagged template literal use ke liye
 export { sql };
 
-// ✅ default export
 const db = { query, raw, sql };
 
 // Test connection
