@@ -9,37 +9,35 @@ if (!connectionString) {
 
 const sql = neon(connectionString);
 
-const db = {
-  // Tagged template method — sql`SELECT * FROM users WHERE id = ${id}`
-  query: async (strings, ...values) => {
-    try {
-      const result = await sql(strings, ...values);
-      return { rows: result };
-    } catch (error) {
-      console.error('❌ Database error in query:', error);
-      throw error;
-    }
-  },
-
-  // ✅ FIXED: Raw method for traditional $1, $2 placeholders
-  raw: async (text, params = []) => {
-    try {
-      const result = await sql.query(text, params);
-      return { rows: result.rows ?? result };
-    } catch (error) {
-      console.error('❌ Database error in raw query:', error);
-      console.error('Query:', text);
-      console.error('Params:', params);
-      throw error;
-    }
+// ✅ Named export — userModel.js aur sab models import { query } karte hain
+export const query = async (text, params = []) => {
+  try {
+    const result = await sql.query(text, params);
+    return { rows: result.rows ?? result };
+  } catch (error) {
+    console.error('❌ Database error:', error);
+    throw error;
   }
+};
+
+// ✅ raw — same as query, backward compat ke liye
+export const raw = query;
+
+// ✅ tagged template — direct sql`...` use ke liye
+export { sql };
+
+// ✅ default export — jo db.query() ya db.raw() use karte hain
+const db = {
+  query,
+  raw,
+  sql,
 };
 
 // Test connection
 (async () => {
   try {
     const result = await sql`SELECT NOW() as time`;
-    console.log('✅ Neon DB connected:', result[0]?.time);
+    console.log('🔥 Neon DB connected:', result[0]?.time);
   } catch (error) {
     console.error('❌ Database connection failed:', error.message);
   }
