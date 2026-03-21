@@ -20,7 +20,7 @@ const getAccessTokenCookieOptions = () => ({
   httpOnly: false,   // frontend JS read kar sake localStorage fallback ke liye
   secure: true,      // SameSite=none ke liye secure zaroori hai
   sameSite: 'none',  // cross-origin (frontend alag domain) ke liye
-  maxAge: 15 * 60 * 1000, // 15 minutes
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 15 minutes
   path: '/'
 });
 
