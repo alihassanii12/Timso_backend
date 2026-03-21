@@ -29,7 +29,7 @@ const getRefreshTokenCookieOptions = () => ({
   secure: true,
   sameSite: 'none',  // cross-origin ke liye
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  path: '/api/auth/refresh-token'
+  path: '/'          // ✅ path '/' — cross-origin mein restricted path kaam nahi karta
 });
 
 /* ─────────────────────────────────────────────
