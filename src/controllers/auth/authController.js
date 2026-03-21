@@ -20,7 +20,7 @@ const getAccessTokenCookieOptions = () => ({
   httpOnly: false,   // frontend JS read kar sake localStorage fallback ke liye
   secure: true,      // SameSite=none ke liye secure zaroori hai
   sameSite: 'none',  // cross-origin (frontend alag domain) ke liye
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 15 minutes
+  maxAge: 15 * 60 * 1000, // 15 minutes
   path: '/'
 });
 
@@ -109,7 +109,15 @@ export const register = async (req, res) => {
       emailVerificationExpires: otpExpires,
     });
 
-    await sendVerificationEmail(normalizedEmail, otp, fullName || username);
+    // ✅ Email fail hone pe registration block mat karo
+    try {
+      await sendVerificationEmail(normalizedEmail, otp, fullName || username);
+    } catch (emailErr) {
+      console.error('Verification email failed:', emailErr.message);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`🔑 DEV OTP for ${normalizedEmail}: ${otp}`);
+      }
+    }
 
     const accessToken = generateAccessToken(newUser);
     const refreshToken = generateRefreshToken();
@@ -538,7 +546,17 @@ export const forgotPassword = async (req, res) => {
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
     await UserModel.savePasswordResetOtp(user.id, otp, otpExpires);
-    await sendPasswordResetEmail(normalizedEmail, otp, user.full_name || user.username);
+    
+    // ✅ Email fail hone pe bhi 500 mat do
+    try {
+      await sendPasswordResetEmail(normalizedEmail, otp, user.full_name || user.username);
+    } catch (emailErr) {
+      console.error('Email send failed:', emailErr.message);
+      // Dev mode mein OTP console mein print karo
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`🔑 DEV OTP for ${normalizedEmail}: ${otp}`);
+      }
+    }
 
     res.json({
       success: true,
