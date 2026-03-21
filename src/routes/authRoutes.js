@@ -8,9 +8,9 @@ import {
   changePassword,
   verifyEmail,
   resendOtp,
-  forgotPassword,   // ← Step 1: OTP bhejo
-  verifyOtp,        // ← Step 2: OTP check karo
-  resetPassword,    // ← Step 3: Password badlo
+  forgotPassword,
+  verifyOtp,
+  resetPassword,
 } from '../controllers/auth/authController.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 
@@ -20,18 +20,18 @@ const router = express.Router();
 router.post('/register',          register);
 router.post('/login',             login);
 router.post('/refresh-token',     refreshToken);
+router.post('/logout',            logout );        // ✅ authenticate hataya — expired token pe bhi kaam kare
 
 // Email verification (OTP)
-router.post('/verify-email',      verifyEmail);    // { email, otp }
-router.post('/resend-otp',        resendOtp);      // { email }
+router.post('/verify-email',      verifyEmail);
+router.post('/resend-otp',        resendOtp);
 
 // Forgot / Reset password (3 steps)
-router.post('/forgot-password',   forgotPassword); // { email }
-router.post('/verify-otp',        verifyOtp);      // { email, otp }
-router.post('/reset-password',    resetPassword);  // { email, otp, password, confirmPassword }
+router.post('/forgot-password',   forgotPassword);
+router.post('/verify-otp',        verifyOtp);
+router.post('/reset-password',    resetPassword);
 
 // ── Protected routes ───────────────────────────────────────
-router.post('/logout',            authenticate, logout);
 router.get('/me',                 authenticate, getCurrentUser);
 router.put('/change-password',    authenticate, changePassword);
 
