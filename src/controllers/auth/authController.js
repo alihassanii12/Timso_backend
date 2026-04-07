@@ -18,9 +18,9 @@ const generateOTP = () => {
    COOKIE OPTIONS — cross-origin fix
 ───────────────────────────────────────────── */
 const getAccessTokenCookieOptions = () => ({
-  httpOnly: false,   // frontend JS read kar sake localStorage fallback ke liye
-  secure: true,      // SameSite=none ke liye secure zaroori hai
-  sameSite: 'none',  // cross-origin (frontend alag domain) ke liye
+  httpOnly: true,    // XSS protection — JS cannot read this
+  secure: true,      // SameSite=none requires secure
+  sameSite: 'none',  // cross-origin (frontend on different domain)
   maxAge: 15 * 60 * 1000, // 15 minutes
   path: '/'
 });

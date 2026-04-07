@@ -1,15 +1,15 @@
-﻿import pool from '../../config/db.js';
+﻿import db from '../../config/db.js';
 
 export const getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
     const { page = 1, limit = 20 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    const result = await pool.query(
+    const result = await db.raw(
       `SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
       [userId, limit, offset]
     );
-    const countR = await pool.query(
+    const countR = await db.raw(
       'SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = false',
       [userId]
     );
@@ -25,7 +25,7 @@ export const getNotifications = async (req, res) => {
 
 export const markRead = async (req, res) => {
   try {
-    const result = await pool.query(
+    const result = await db.raw(
       `UPDATE notifications SET is_read = true, read_at = NOW()
        WHERE id = $1 AND user_id = $2 RETURNING *`,
       [req.params.id, req.user.id]
@@ -41,7 +41,7 @@ export const markRead = async (req, res) => {
 
 export const markAllRead = async (req, res) => {
   try {
-    await pool.query(
+    await db.raw(
       `UPDATE notifications SET is_read = true, read_at = NOW()
        WHERE user_id = $1 AND is_read = false`,
       [req.user.id]

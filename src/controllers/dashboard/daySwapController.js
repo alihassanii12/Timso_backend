@@ -1,8 +1,8 @@
 ﻿import DaySwapModel from '../../models/daySwapModel.js';
-import pool         from '../../config/db.js';
+import db           from '../../config/db.js';
 
 const tryLog = async (userId, action, icon = '📋') => {
-  try { await pool.query(`INSERT INTO activity_log (user_id, action, icon, created_at) VALUES ($1, $2, $3, NOW())`, [userId, action, icon]); } catch {}
+  try { await db.raw(`INSERT INTO activity_log (user_id, action, icon, created_at) VALUES ($1, $2, $3, NOW())`, [userId, action, icon]); } catch {}
 };
 
 export const createSwap = async (req, res) => {
@@ -33,7 +33,7 @@ export const approveSwap = async (req, res) => {
     if (!swap) return res.status(404).json({ success: false, message: 'Swap not found' });
     if (swap.status !== 'pending') return res.status(400).json({ success: false, message: `Swap is already ${swap.status}` });
     const updated = await DaySwapModel.approve(swap.id, req.user.id);
-    try { await pool.query(`INSERT INTO notifications (user_id, type, title, message, data) VALUES ($1, 'swap_approved', 'Day Swap Approved', $2, $3::jsonb)`, [swap.requester_id, `Your swap (${swap.from_date} to ${swap.to_date}) approved`, JSON.stringify({ swap_id: swap.id })]); } catch {}
+    try { await db.raw(`INSERT INTO notifications (user_id, type, title, message, data) VALUES ($1, 'swap_approved', 'Day Swap Approved', $2, $3::jsonb)`, [swap.requester_id, `Your swap (${swap.from_date} to ${swap.to_date}) approved`, JSON.stringify({ swap_id: swap.id })]); } catch {}
     await tryLog(req.user.id, `approved swap #${swap.id}`, '✅');
     return res.json({ success: true, message: 'Swap approved', data: { swap: updated } });
   } catch (err) { console.error('approveSwap error:', err); return res.status(500).json({ success: false, message: err.message }); }
@@ -45,7 +45,7 @@ export const declineSwap = async (req, res) => {
     if (!swap) return res.status(404).json({ success: false, message: 'Swap not found' });
     if (swap.status !== 'pending') return res.status(400).json({ success: false, message: `Swap is already ${swap.status}` });
     const updated = await DaySwapModel.decline(swap.id, req.user.id);
-    try { await pool.query(`INSERT INTO notifications (user_id, type, title, message, data) VALUES ($1, 'swap_declined', 'Day Swap Declined', $2, $3::jsonb)`, [swap.requester_id, `Your swap (${swap.from_date} to ${swap.to_date}) declined`, JSON.stringify({ swap_id: swap.id })]); } catch {}
+    try { await db.raw(`INSERT INTO notifications (user_id, type, title, message, data) VALUES ($1, 'swap_declined', 'Day Swap Declined', $2, $3::jsonb)`, [swap.requester_id, `Your swap (${swap.from_date} to ${swap.to_date}) declined`, JSON.stringify({ swap_id: swap.id })]); } catch {}
     await tryLog(req.user.id, `declined swap #${swap.id}`, '❌');
     return res.json({ success: true, message: 'Swap declined', data: { swap: updated } });
   } catch (err) { console.error('declineSwap error:', err); return res.status(500).json({ success: false, message: err.message }); }
@@ -57,7 +57,7 @@ export const deleteSwap = async (req, res) => {
     if (!swap) return res.status(404).json({ success: false, message: 'Swap not found' });
     if (swap.requester_id !== req.user.id) return res.status(403).json({ success: false, message: 'Not your request' });
     if (swap.status !== 'pending') return res.status(400).json({ success: false, message: 'Cannot cancel reviewed swap' });
-    await pool.query('DELETE FROM day_swaps WHERE id = $1', [req.params.id]);
+    await db.raw('DELETE FROM day_swaps WHERE id = $1', [req.params.id]);
     return res.json({ success: true, message: 'Swap cancelled' });
   } catch (err) { console.error('deleteSwap error:', err); return res.status(500).json({ success: false, message: err.message }); }
 };

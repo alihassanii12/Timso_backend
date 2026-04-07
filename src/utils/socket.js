@@ -5,8 +5,11 @@ export const initSocket = async (server) => {
     const { Server } = await import('socket.io');
     io = new Server(server, {
       cors: {
-        origin: "*", // Adjust this for production security
-        methods: ["GET", "POST"]
+        origin: process.env.ALLOWED_ORIGINS
+          ? process.env.ALLOWED_ORIGINS.split(',')
+          : ['http://localhost:3000', 'https://timso.vercel.app'],
+        methods: ["GET", "POST"],
+        credentials: true
       }
     });
 
