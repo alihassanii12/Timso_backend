@@ -198,17 +198,49 @@ export const initializeDatabase = async () => {
                 from_date       DATE NOT NULL,
                 to_date         DATE NOT NULL,
                 reason          TEXT,
-                status          VARCHAR(20) NOT NULL DEFAULT 'pending'
-                                CHECK (status IN ('pending','approved','declined')),
-                reviewed_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
-                reviewed_at     TIMESTAMP,
+                status          VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
                 created_at      TIMESTAMP DEFAULT NOW(),
                 updated_at      TIMESTAMP DEFAULT NOW()
             )
         `);
         console.log('✅ Day swaps table created or already exists');
 
-        // 3. ACTIVITY LOG — team ke status changes
+        // 3. COMPANIES — company registration
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS companies (
+                id              SERIAL PRIMARY KEY,
+                name            VARCHAR(255) UNIQUE NOT NULL,
+                admin_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                description     TEXT,
+                created_at      TIMESTAMP DEFAULT NOW(),
+                updated_at      TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        console.log('✅ Companies table created or already exists');
+
+        // 4. COMPANY APPLICATIONS — user applications to join a company
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS company_applications (
+                id              SERIAL PRIMARY KEY,
+                user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                company_id      INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+                status          VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
+                created_at      TIMESTAMP DEFAULT NOW(),
+                updated_at      TIMESTAMP DEFAULT NOW(),
+                UNIQUE(user_id, company_id)
+            )
+        `);
+        console.log('✅ Company applications table created or already exists');
+
+        // 5. UPDATE USERS TABLE — add company_id
+        try {
+            await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL`);
+            console.log('✅ Added company_id to users table');
+        } catch (err) {
+            console.log('⚠️ company_id already exists in users table or error occurred:', err.message);
+        }
+
+        // 6. ACTIVITY LOG — team ke status changes
         await pool.query(`
             CREATE TABLE IF NOT EXISTS activity_log (
                 id          SERIAL PRIMARY KEY,
