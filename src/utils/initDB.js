@@ -232,6 +232,36 @@ export const initializeDatabase = async () => {
             )
         `);
 
+        // ── JOB BOARD ────────────────────────────────────────────────
+        await q(`
+            CREATE TABLE IF NOT EXISTS jobs (
+                id          SERIAL PRIMARY KEY,
+                company_id  INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+                posted_by   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                title       VARCHAR(255) NOT NULL,
+                description TEXT,
+                location    VARCHAR(100) DEFAULT 'Remote',
+                type        VARCHAR(50)  DEFAULT 'Full-time',
+                salary      VARCHAR(100),
+                tags        TEXT[]       DEFAULT ARRAY[]::TEXT[],
+                is_active   BOOLEAN      DEFAULT true,
+                created_at  TIMESTAMP    DEFAULT NOW(),
+                updated_at  TIMESTAMP    DEFAULT NOW()
+            )
+        `);
+
+        await q(`
+            CREATE TABLE IF NOT EXISTS job_applications (
+                id         SERIAL PRIMARY KEY,
+                job_id     INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+                user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                status     VARCHAR(20) DEFAULT 'applied' CHECK (status IN ('applied','reviewing','accepted','rejected')),
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW(),
+                UNIQUE(job_id, user_id)
+            )
+        `);
+
         console.log('✅ All tables ready');
 
         // ── ALTER: add missing columns ──────────────────────────────
@@ -281,6 +311,11 @@ export const initializeDatabase = async () => {
             CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
             CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date);
             CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at);
+            CREATE INDEX IF NOT EXISTS idx_jobs_company_id ON jobs(company_id);
+            CREATE INDEX IF NOT EXISTS idx_jobs_posted_by ON jobs(posted_by);
+            CREATE INDEX IF NOT EXISTS idx_jobs_is_active ON jobs(is_active);
+            CREATE INDEX IF NOT EXISTS idx_job_applications_job_id ON job_applications(job_id);
+            CREATE INDEX IF NOT EXISTS idx_job_applications_user_id ON job_applications(user_id);
         `);
         console.log('✅ Indexes ready');
 

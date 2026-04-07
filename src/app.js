@@ -14,6 +14,7 @@ import TeamRoutes         from "./routes/TeamRoutes.js";
 import taskRoutes         from "./routes/TaskRoutes.js";
 import AvatarRoutes       from "./routes/AvatarRoutes.js";
 import companyRoutes      from "./routes/companyRoutes.js";
+import jobRoutes          from "./routes/jobRoutes.js";
 import { activityRouter, notificationRouter } from "./routes/MiscRoutes.js";
 import corsMiddleware     from "./cors.js";
 
@@ -56,6 +57,7 @@ app.use("/api/team",          TeamRoutes);
 app.use("/api/tasks",         taskRoutes);
 app.use("/api/avatar",        AvatarRoutes);
 app.use("/api/companies",     companyRoutes);
+app.use("/api/jobs",          jobRoutes);
 app.use("/api/activity",      activityRouter);
 app.use("/api/notifications", notificationRouter);
 
