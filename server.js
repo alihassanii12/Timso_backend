@@ -17,19 +17,25 @@ console.log('🗄️ DATABASE_URL exists:', !!process.env.DATABASE_URL);
 
 if (!isVercel) {
   const server = http.createServer(app);
-  initSocket(server);
   
-  initializeDatabase().then(() => {
-    server.listen(PORT, () => {
-      console.log(`=================================`);
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📍 http://localhost:${PORT}`);
-      console.log(`=================================`);
-    });
-  }).catch(err => {
-    console.error('Failed to initialize database:', err);
-    process.exit(1);
-  });
+  const startServer = async () => {
+    try {
+      await initSocket(server);
+      await initializeDatabase();
+      
+      server.listen(PORT, () => {
+        console.log(`=================================`);
+        console.log(`🚀 Server running on port ${PORT}`);
+        console.log(`📍 http://localhost:${PORT}`);
+        console.log(`=================================`);
+      });
+    } catch (err) {
+      console.error('💥 Failed to start server:', err);
+      process.exit(1);
+    }
+  };
+
+  startServer();
 } else {
   console.log('🌐 Running in Vercel serverless mode');
 }
