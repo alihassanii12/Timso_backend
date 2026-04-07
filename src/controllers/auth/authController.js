@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import validator from 'validator';
 import crypto from 'crypto';
 import UserModel from "../../models/userModel.js";
+import CompanyModel from "../../models/companyModel.js";
 import { 
   generateAccessToken, 
   generateRefreshToken 
@@ -37,12 +38,19 @@ const getRefreshTokenCookieOptions = () => ({
 ───────────────────────────────────────────── */
 export const register = async (req, res) => {
   try {
-    const { email, username, password, fullName, role } = req.body;
+    const { email, username, password, fullName, role, companyName, companyDescription } = req.body;
 
     if (!email || !username || !password) {
       return res.status(400).json({ 
         success: false,
         message: "Email, username and password are required" 
+      });
+    }
+
+    if (role === 'admin' && !companyName) {
+      return res.status(400).json({
+        success: false,
+        message: "Company name is required for admin accounts"
       });
     }
 
@@ -108,6 +116,20 @@ export const register = async (req, res) => {
       emailVerificationToken: otp,
       emailVerificationExpires: otpExpires,
     });
+
+    // If role is admin, register the company and link it to the user
+    if (userRole === 'admin') {
+      try {
+        await CompanyModel.create({
+          name: companyName,
+          adminId: newUser.id,
+          description: companyDescription || ''
+        });
+      } catch (companyErr) {
+        console.error('Company creation failed during registration:', companyErr.message);
+        // We might want to handle this more gracefully, but for now we'll continue
+      }
+    }
 
     // ✅ Email fail hone pe registration block mat karo
     try {
