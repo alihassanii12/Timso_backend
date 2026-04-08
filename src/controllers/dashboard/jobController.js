@@ -16,8 +16,11 @@ export const getJobs = async (req, res) => {
 // GET /api/jobs/my-company — admin: jobs posted by their company
 export const getMyCompanyJobs = async (req, res) => {
   try {
-    const company = await CompanyModel.findByAdminId(req.user.id);
-    if (!company) return res.status(404).json({ success: false, message: 'No company found' });
+    let company = await CompanyModel.findByAdminId(req.user.id);
+    if (!company && req.user.company_id) {
+      company = await CompanyModel.findById(req.user.company_id);
+    }
+    if (!company) return res.json({ success: true, data: { jobs: [] } });
     const jobs = await JobModel.getAll(company.id);
     return res.json({ success: true, data: { jobs } });
   } catch (err) {
@@ -32,8 +35,17 @@ export const createJob = async (req, res) => {
     const { title, description, location, type, salary, tags } = req.body;
     if (!title) return res.status(400).json({ success: false, message: 'Title is required' });
 
-    const company = await CompanyModel.findByAdminId(req.user.id);
-    if (!company) return res.status(404).json({ success: false, message: 'You must have a company to post jobs' });
+    // Find company by admin_id OR by user's company_id
+    let company = await CompanyModel.findByAdminId(req.user.id);
+    if (!company && req.user.company_id) {
+      company = await CompanyModel.findById(req.user.company_id);
+    }
+    if (!company) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No company found. Please register a company first from the register page.' 
+      });
+    }
 
     const parsedTags = Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []);
 
@@ -44,7 +56,6 @@ export const createJob = async (req, res) => {
       tags: parsedTags,
     });
 
-    // Log activity
     try {
       await db.raw(
         `INSERT INTO activity_log (user_id, action, icon, created_at) VALUES ($1, $2, '💼', NOW())`,
@@ -55,7 +66,7 @@ export const createJob = async (req, res) => {
     return res.status(201).json({ success: true, message: 'Job posted', data: { job } });
   } catch (err) {
     console.error('createJob error:', err);
-    return res.status(500).json({ success: false, message: 'Internal server error' });
+    return res.status(500).json({ success: false, message: err.message || 'Internal server error' });
   }
 };
 

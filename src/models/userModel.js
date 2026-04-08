@@ -24,7 +24,7 @@ class UserModel {
   static async findById(id) {
     const result = await query`
       SELECT id, email, username, full_name, email_verified, role,
-             profile_picture, created_at, last_login
+             profile_picture, created_at, last_login, company_id
       FROM users WHERE id = ${id}
     `;
     return result.rows[0];
@@ -109,7 +109,7 @@ class UserModel {
   static async getProfile(userId) {
     const result = await query`
       SELECT id, email, username, full_name, email_verified, role,
-             profile_picture, created_at, last_login
+             profile_picture, created_at, last_login, company_id
       FROM users WHERE id = ${userId}
     `;
     return result.rows[0];
