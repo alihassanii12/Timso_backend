@@ -137,6 +137,17 @@ export const applyToJob = async (req, res) => {
   }
 };
 
+// GET /api/jobs/company/:companyId — jobs for a specific company (for find-company page)
+export const getJobsByCompany = async (req, res) => {
+  try {
+    const jobs = await JobModel.getAll(req.params.companyId);
+    return res.json({ success: true, data: { jobs } });
+  } catch (err) {
+    console.error('getJobsByCompany error:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 // GET /api/jobs/my-applications — user: their applications
 export const getMyApplications = async (req, res) => {
   try {

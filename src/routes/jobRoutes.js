@@ -10,22 +10,24 @@ import {
   getMyApplications,
   getJobApplications,
   updateApplicationStatus,
+  getJobsByCompany,
 } from '../controllers/dashboard/jobController.js';
 
 const router = express.Router();
 router.use(authenticate);
 
 // User routes
-router.get('/',                              getJobs);              // all active jobs
-router.get('/my-applications',               getMyApplications);    // user's applications
-router.post('/:id/apply',                    applyToJob);           // apply to a job
+router.get('/',                              getJobs);
+router.get('/my-applications',               getMyApplications);
+router.get('/company/:companyId',            getJobsByCompany);   // jobs for a specific company
+router.post('/:id/apply',                    applyToJob);
 
 // Admin routes
-router.get('/my-company',                    adminOnly, getMyCompanyJobs);          // admin's own jobs
-router.post('/',                             adminOnly, createJob);                 // post a job
-router.patch('/:id',                         adminOnly, updateJob);                 // edit a job
-router.delete('/:id',                        adminOnly, deleteJob);                 // delete a job
-router.get('/:id/applications',              adminOnly, getJobApplications);        // applicants list
-router.patch('/applications/:appId/status',  adminOnly, updateApplicationStatus);   // update applicant status
+router.get('/my-company',                    adminOnly, getMyCompanyJobs);
+router.post('/',                             adminOnly, createJob);
+router.patch('/:id',                         adminOnly, updateJob);
+router.delete('/:id',                        adminOnly, deleteJob);
+router.get('/:id/applications',              adminOnly, getJobApplications);
+router.patch('/applications/:appId/status',  adminOnly, updateApplicationStatus);
 
 export default router;
