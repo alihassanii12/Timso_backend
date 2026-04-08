@@ -31,10 +31,9 @@ class AttendanceModel {
     return result.rows[0] || null;
   }
 
-  // Puri team ki aaj ki attendance
-  static async getTeamToday() {
-    // ✅ Use tagged template syntax (no parameters needed)
-    const result = await db.query`
+  // Puri team ki aaj ki attendance — company filter ke saath
+  static async getTeamToday(companyId = null) {
+    const result = await db.raw(`
       SELECT
         u.id,
         u.full_name,
@@ -42,6 +41,7 @@ class AttendanceModel {
         u.email,
         u.role                                    AS job_role,
         u.profile_picture,
+        u.company_id,
         COALESCE(a.status, 'away')                AS status,
         COALESCE(a.note, '')                      AS note,
         TO_CHAR(a.checked_in_at, 'HH12:MI AM')   AS since,
@@ -50,6 +50,7 @@ class AttendanceModel {
       LEFT JOIN attendance a
         ON a.user_id = u.id AND a.date = CURRENT_DATE
       WHERE u.is_active = true
+        ${companyId ? 'AND u.company_id = $1' : ''}
       ORDER BY
         CASE COALESCE(a.status,'away')
           WHEN 'office' THEN 1
@@ -57,7 +58,7 @@ class AttendanceModel {
           ELSE 3
         END,
         u.full_name
-    `;
+    `, companyId ? [companyId] : []);
     return result.rows;
   }
 
@@ -83,10 +84,9 @@ class AttendanceModel {
     return result.rows;
   }
 
-  // Summary stats
-  static async getTodayStats() {
-    // ✅ Use tagged template syntax
-    const result = await db.query`
+  // Summary stats — company filter ke saath
+  static async getTodayStats(companyId = null) {
+    const result = await db.raw(`
       SELECT
         COUNT(*)                                           AS total_active_users,
         COUNT(a.id) FILTER (WHERE a.status = 'office')    AS in_office,
@@ -97,7 +97,8 @@ class AttendanceModel {
       LEFT JOIN attendance a
         ON a.user_id = u.id AND a.date = CURRENT_DATE
       WHERE u.is_active = true
-    `;
+        ${companyId ? 'AND u.company_id = $1' : ''}
+    `, companyId ? [companyId] : []);
     return result.rows[0];
   }
 }

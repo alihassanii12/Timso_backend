@@ -42,8 +42,9 @@ export const getMyAttendance = async (req, res) => {
 
 export const getTeamAttendance = async (req, res) => {
   try {
-    const team  = await AttendanceModel.getTeamToday();
-    const stats = await AttendanceModel.getTodayStats();
+    const companyId = req.user.company_id || null;
+    const team  = await AttendanceModel.getTeamToday(companyId);
+    const stats = await AttendanceModel.getTodayStats(companyId);
     return res.json({ success: true, data: { team, stats } });
   } catch (err) {
     console.error('getTeamAttendance error:', err);

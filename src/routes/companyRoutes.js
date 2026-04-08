@@ -18,7 +18,11 @@ router.post('/apply', authenticate, CompanyController.apply);
 router.get('/my-applications', authenticate, async (req, res) => {
   try {
     const result = await raw(
-      'SELECT * FROM company_applications WHERE user_id = $1 ORDER BY created_at DESC',
+      `SELECT ca.*, c.name AS company_name, c.description AS company_description
+       FROM company_applications ca
+       JOIN companies c ON c.id = ca.company_id
+       WHERE ca.user_id = $1
+       ORDER BY ca.created_at DESC`,
       [req.user.id]
     );
     res.json({ success: true, applications: result.rows });

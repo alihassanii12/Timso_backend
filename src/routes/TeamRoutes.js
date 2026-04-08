@@ -6,10 +6,11 @@ import DaySwapModel    from '../models/daySwapModel.js';
 const router = express.Router();
 router.use(authenticate);
 
-// GET /api/team â€” team board
+// GET /api/team — team board (filtered by company)
 router.get('/', async (req, res) => {
   try {
-    const team = await AttendanceModel.getTeamToday();
+    const companyId = req.user.company_id || null;
+    const team = await AttendanceModel.getTeamToday(companyId);
     return res.json({ success: true, data: { members: team } });
   } catch (err) {
     console.error('GET /api/team error:', err);
@@ -20,7 +21,8 @@ router.get('/', async (req, res) => {
 // GET /api/team/stats
 router.get('/stats', async (req, res) => {
   try {
-    const stats = await AttendanceModel.getTodayStats();
+    const companyId = req.user.company_id || null;
+    const stats = await AttendanceModel.getTodayStats(companyId);
     return res.json({ success: true, data: { stats } });
   } catch (err) {
     console.error('GET /api/team/stats error:', err);
@@ -28,12 +30,13 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-// GET /api/team/analytics â€” admin only
+// GET /api/team/analytics — admin only
 router.get('/analytics', adminOnly, async (req, res) => {
   try {
+    const companyId = req.user.company_id || null;
     const [weekly, todayStats, swapStats] = await Promise.all([
       AttendanceModel.getWeeklyStats(),
-      AttendanceModel.getTodayStats(),
+      AttendanceModel.getTodayStats(companyId),
       DaySwapModel.getStats(),
     ]);
     const total    = parseInt(todayStats.total_active_users) || 1;
@@ -67,7 +70,7 @@ router.get('/analytics', adminOnly, async (req, res) => {
   }
 });
 
-// PATCH /api/team/:userId/status â€” admin only
+// PATCH /api/team/:userId/status — admin only
 router.patch('/:userId/status', adminOnly, async (req, res) => {
   try {
     const { status, note = '' } = req.body;
