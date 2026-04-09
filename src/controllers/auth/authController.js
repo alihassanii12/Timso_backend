@@ -157,8 +157,10 @@ export const register = async (req, res) => {
         email: newUser.email,
         username: newUser.username,
         fullName: newUser.full_name,
+        full_name: newUser.full_name,
         role: newUser.role,
-        emailVerified: false
+        emailVerified: false,
+        company_id: null,
       },
       accessToken,
       requiresOtp: true,
@@ -357,8 +359,10 @@ export const login = async (req, res) => {
         email: user.email,
         username: user.username,
         fullName: user.full_name,
+        full_name: user.full_name,
         emailVerified: user.email_verified,
-        role: user.role
+        role: user.role,
+        company_id: user.company_id || null,
       },
       accessToken,
       requiresOtp: !user.email_verified,
@@ -465,10 +469,12 @@ export const getCurrentUser = async (req, res) => {
         email: user.email,
         username: user.username,
         fullName: user.full_name,
+        full_name: user.full_name,
         role: user.role,
         emailVerified: user.email_verified,
         createdAt: user.created_at,
         profile_picture: user.profile_picture || null,
+        company_id: user.company_id || null,
       }
     });
 
