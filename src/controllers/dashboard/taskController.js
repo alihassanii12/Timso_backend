@@ -17,7 +17,8 @@ const tryLog = async (userId, action) => {
 // GET /api/tasks/users — admin: dropdown ke liye users list
 export const getUsersForAssign = async (req, res) => {
   try {
-    const users = await TaskModel.getUsersForAssign();
+    const companyId = req.user.company_id || null;
+    const users = await TaskModel.getUsersForAssign(companyId);
     return res.json({ success: true, data: { users } });
   } catch (err) {
     console.error('getUsersForAssign error:', err);

@@ -252,9 +252,19 @@ class TaskModel {
     }
   }
 
-  // All active users for dropdown
-  static async getUsersForAssign() {
+  // Active users for dropdown — filtered by company
+  static async getUsersForAssign(companyId = null) {
     try {
+      if (companyId) {
+        const result = await db.raw(
+          `SELECT id, full_name, username, email, role
+           FROM users
+           WHERE is_active = true AND company_id = $1
+           ORDER BY full_name`,
+          [companyId]
+        );
+        return result.rows;
+      }
       const result = await db.query`
         SELECT id, full_name, username, email, role
         FROM users

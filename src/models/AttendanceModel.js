@@ -32,7 +32,20 @@ class AttendanceModel {
   }
 
   // Puri team ki aaj ki attendance — company filter ke saath
-  static async getTeamToday(companyId = null) {
+  // companyId null + userId given = sirf woh user (no company yet)
+  static async getTeamToday(companyId = null, userId = null) {
+    let where = 'WHERE u.is_active = true';
+    const params = [];
+
+    if (companyId) {
+      params.push(companyId);
+      where += ' AND u.company_id = $1';
+    } else if (userId) {
+      // User has no company yet — show only themselves
+      params.push(userId);
+      where += ' AND u.id = $1';
+    }
+
     const result = await db.raw(`
       SELECT
         u.id,
@@ -49,8 +62,7 @@ class AttendanceModel {
       FROM users u
       LEFT JOIN attendance a
         ON a.user_id = u.id AND a.date = CURRENT_DATE
-      WHERE u.is_active = true
-        ${companyId ? 'AND u.company_id = $1' : ''}
+      ${where}
       ORDER BY
         CASE COALESCE(a.status,'away')
           WHEN 'office' THEN 1
@@ -58,7 +70,7 @@ class AttendanceModel {
           ELSE 3
         END,
         u.full_name
-    `, companyId ? [companyId] : []);
+    `, params);
     return result.rows;
   }
 
@@ -85,7 +97,18 @@ class AttendanceModel {
   }
 
   // Summary stats — company filter ke saath
-  static async getTodayStats(companyId = null) {
+  static async getTodayStats(companyId = null, userId = null) {
+    let where = 'WHERE u.is_active = true';
+    const params = [];
+
+    if (companyId) {
+      params.push(companyId);
+      where += ' AND u.company_id = $1';
+    } else if (userId) {
+      params.push(userId);
+      where += ' AND u.id = $1';
+    }
+
     const result = await db.raw(`
       SELECT
         COUNT(*)                                           AS total_active_users,
@@ -96,9 +119,8 @@ class AttendanceModel {
       FROM users u
       LEFT JOIN attendance a
         ON a.user_id = u.id AND a.date = CURRENT_DATE
-      WHERE u.is_active = true
-        ${companyId ? 'AND u.company_id = $1' : ''}
-    `, companyId ? [companyId] : []);
+      ${where}
+    `, params);
     return result.rows[0];
   }
 }
