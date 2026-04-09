@@ -177,8 +177,40 @@ export const updateApplicationStatus = async (req, res) => {
     if (!['applied', 'reviewing', 'accepted', 'rejected'].includes(status)) {
       return res.status(400).json({ success: false, message: 'Invalid status' });
     }
+
     const updated = await JobModel.updateApplicationStatus(req.params.appId, status);
     if (!updated) return res.status(404).json({ success: false, message: 'Application not found' });
+
+    // When accepted → set user's company_id to the job's company
+    if (status === 'accepted') {
+      try {
+        const job = await JobModel.getById(updated.job_id);
+        if (job?.company_id) {
+          await db.raw(
+            'UPDATE users SET company_id = $1 WHERE id = $2',
+            [job.company_id, updated.user_id]
+          );
+          // Notify user
+          await db.raw(
+            `INSERT INTO notifications (user_id, type, title, message, data)
+             VALUES ($1, 'job_accepted', 'Application Accepted! 🎉', $2, $3::jsonb)`,
+            [
+              updated.user_id,
+              `Congratulations! Your application for "${job.title}" has been accepted. Welcome to ${job.company_name}!`,
+              JSON.stringify({ job_id: updated.job_id, company_id: job.company_id })
+            ]
+          );
+          // Activity log
+          await db.raw(
+            `INSERT INTO activity_log (user_id, action, icon, created_at) VALUES ($1, $2, '🎉', NOW())`,
+            [updated.user_id, `joined ${job.company_name}`]
+          );
+        }
+      } catch (err) {
+        console.error('Error setting company_id on acceptance:', err);
+      }
+    }
+
     return res.json({ success: true, message: 'Status updated', data: { application: updated } });
   } catch (err) {
     console.error('updateApplicationStatus error:', err);

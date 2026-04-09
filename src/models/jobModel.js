@@ -2,7 +2,6 @@ import db from '../config/db.js';
 
 class JobModel {
 
-  // Admin: create a job
   static async create({ companyId, postedBy, title, description, location, type, salary, tags }) {
     const result = await db.raw(
       `INSERT INTO jobs (company_id, posted_by, title, description, location, type, salary, tags, created_at)
@@ -12,13 +11,12 @@ class JobModel {
     return result.rows[0];
   }
 
-  // Get all active jobs (with company info + application count)
   static async getAll(companyId = null) {
     const params = [];
     let where = 'WHERE j.is_active = true';
     if (companyId) {
       params.push(companyId);
-      where += ` AND j.company_id = $${params.length}`;
+      where += ' AND j.company_id = $1';
     }
     const result = await db.raw(
       `SELECT j.*,
@@ -37,10 +35,9 @@ class JobModel {
     return result.rows;
   }
 
-  // Get single job
   static async getById(id) {
     const result = await db.raw(
-      `SELECT j.*, c.name AS company_name, u.full_name AS posted_by_name
+      `SELECT j.*, c.name AS company_name, c.id AS company_id, u.full_name AS posted_by_name
        FROM jobs j
        JOIN companies c ON c.id = j.company_id
        JOIN users u ON u.id = j.posted_by
@@ -50,35 +47,32 @@ class JobModel {
     return result.rows[0];
   }
 
-  // Update job
   static async update(id, { title, description, location, type, salary, tags, isActive }) {
     const sets = [];
     const vals = [];
-    let i = 1;
-    if (title       !== undefined) { sets.push(`title=$${i++}`);       vals.push(title); }
-    if (description !== undefined) { sets.push(`description=$${i++}`); vals.push(description); }
-    if (location    !== undefined) { sets.push(`location=$${i++}`);    vals.push(location); }
-    if (type        !== undefined) { sets.push(`type=$${i++}`);        vals.push(type); }
-    if (salary      !== undefined) { sets.push(`salary=$${i++}`);      vals.push(salary); }
-    if (tags        !== undefined) { sets.push(`tags=$${i++}`);        vals.push(tags); }
-    if (isActive    !== undefined) { sets.push(`is_active=$${i++}`);   vals.push(isActive); }
+    let idx = 1;
+    if (title       !== undefined) { sets.push('title=$' + idx++);       vals.push(title); }
+    if (description !== undefined) { sets.push('description=$' + idx++); vals.push(description); }
+    if (location    !== undefined) { sets.push('location=$' + idx++);    vals.push(location); }
+    if (type        !== undefined) { sets.push('type=$' + idx++);        vals.push(type); }
+    if (salary      !== undefined) { sets.push('salary=$' + idx++);      vals.push(salary); }
+    if (tags        !== undefined) { sets.push('tags=$' + idx++);        vals.push(tags); }
+    if (isActive    !== undefined) { sets.push('is_active=$' + idx++);   vals.push(isActive); }
     if (!sets.length) return null;
-    sets.push(`updated_at=NOW()`);
+    sets.push('updated_at=NOW()');
     vals.push(id);
     const result = await db.raw(
-      `UPDATE jobs SET ${sets.join(',')} WHERE id=$${i} RETURNING *`,
+      `UPDATE jobs SET ${sets.join(',')} WHERE id=$${idx} RETURNING *`,
       vals
     );
     return result.rows[0];
   }
 
-  // Delete job
   static async delete(id) {
     const result = await db.raw('DELETE FROM jobs WHERE id=$1 RETURNING id', [id]);
     return result.rows[0];
   }
 
-  // User applies to a job
   static async apply(jobId, userId) {
     const result = await db.raw(
       `INSERT INTO job_applications (job_id, user_id, status, created_at)
@@ -90,7 +84,6 @@ class JobModel {
     return result.rows[0];
   }
 
-  // Get applications for a job (admin)
   static async getApplications(jobId) {
     const result = await db.raw(
       `SELECT ja.*, u.full_name, u.email, u.username, u.profile_picture
@@ -103,10 +96,9 @@ class JobModel {
     return result.rows;
   }
 
-  // Get all applications by a user
   static async getMyApplications(userId) {
     const result = await db.raw(
-      `SELECT ja.*, j.title AS job_title, j.location, j.type, j.salary, c.name AS company_name
+      `SELECT ja.*, j.title AS job_title, j.location, j.type, j.salary, c.name AS company_name, c.id AS company_id
        FROM job_applications ja
        JOIN jobs j ON j.id = ja.job_id
        JOIN companies c ON c.id = j.company_id
@@ -117,7 +109,6 @@ class JobModel {
     return result.rows;
   }
 
-  // Update application status (admin)
   static async updateApplicationStatus(applicationId, status) {
     const result = await db.raw(
       `UPDATE job_applications SET status=$1, updated_at=NOW() WHERE id=$2 RETURNING *`,
@@ -126,7 +117,6 @@ class JobModel {
     return result.rows[0];
   }
 
-  // Check if user already applied
   static async hasApplied(jobId, userId) {
     const result = await db.raw(
       'SELECT id FROM job_applications WHERE job_id=$1 AND user_id=$2',
