@@ -13,11 +13,12 @@ router.get('/', authenticate, (req, res) => {
   res.flushHeaders();
 
   const userId = req.user.id;
+  const companyId = req.user.company_id || null;
 
   // Send initial ping
   res.write(`event: connected\ndata: ${JSON.stringify({ userId, time: new Date().toISOString() })}\n\n`);
 
-  addClient(userId, res);
+  addClient(userId, companyId, res);
 
   // Heartbeat every 25s to keep connection alive
   const heartbeat = setInterval(() => {

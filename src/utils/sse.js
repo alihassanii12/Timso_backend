@@ -1,32 +1,36 @@
-// Server-Sent Events — works on Vercel serverless
-// Each client connects and gets pushed events
+// Server-Sent Events
+// clients: userId -> { res: Set, companyId }
 
-const clients = new Map(); // userId -> Set of response objects
+const clients = new Map(); // userId -> { resSet: Set, companyId }
 
-export const addClient = (userId, res) => {
-  if (!clients.has(userId)) clients.set(userId, new Set());
-  clients.get(userId).add(res);
+export const addClient = (userId, companyId, res) => {
+  if (!clients.has(userId)) {
+    clients.set(userId, { resSet: new Set(), companyId: companyId || null });
+  }
+  clients.get(userId).resSet.add(res);
 };
 
 export const removeClient = (userId, res) => {
   if (clients.has(userId)) {
-    clients.get(userId).delete(res);
-    if (clients.get(userId).size === 0) clients.delete(userId);
+    clients.get(userId).resSet.delete(res);
+    if (clients.get(userId).resSet.size === 0) clients.delete(userId);
   }
 };
 
 export const sendToUser = (userId, event, data) => {
   if (!clients.has(userId)) return;
   const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const res of clients.get(userId)) {
+  for (const res of clients.get(userId).resSet) {
     try { res.write(msg); } catch {}
   }
 };
 
 export const sendToCompany = (companyId, event, data, excludeUserId = null) => {
-  for (const [userId, resSet] of clients.entries()) {
+  if (!companyId) return;
+  const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const [userId, { resSet, companyId: cid }] of clients.entries()) {
+    if (String(cid) !== String(companyId)) continue;
     if (excludeUserId && String(userId) === String(excludeUserId)) continue;
-    const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
     for (const res of resSet) {
       try { res.write(msg); } catch {}
     }
@@ -35,7 +39,7 @@ export const sendToCompany = (companyId, event, data, excludeUserId = null) => {
 
 export const broadcast = (event, data) => {
   const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const resSet of clients.values()) {
+  for (const { resSet } of clients.values()) {
     for (const res of resSet) {
       try { res.write(msg); } catch {}
     }

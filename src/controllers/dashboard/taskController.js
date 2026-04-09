@@ -142,6 +142,10 @@ export const deleteTask = async (req, res) => {
     
     if (task) {
       await tryLog(req.user.id, `deleted task "${task.title}"`);
+      // Real-time: notify company
+      if (req.user.company_id) {
+        sendToCompany(req.user.company_id, 'tasks_updated', { action: 'deleted', taskId: req.params.id });
+      }
     }
     return res.json({ success: true, message: 'Task deleted' });
   } catch (err) {
