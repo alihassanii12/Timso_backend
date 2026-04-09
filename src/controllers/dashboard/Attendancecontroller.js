@@ -1,5 +1,6 @@
 ﻿import AttendanceModel from '../../models/AttendanceModel.js';
 import ActivityModel   from '../../models/activityModel.js';
+import { sendToCompany } from '../../utils/sse.js';
 
 const STATUS_ICONS  = { office: '🏢', remote: '🏠', away: '🌴' };
 const STATUS_LABELS = { office: 'In Office', remote: 'Remote', away: 'Away' };
@@ -15,6 +16,15 @@ export const updateAttendance = async (req, res) => {
     const icon   = STATUS_ICONS[status];
     const detail = note ? ` — ${note}` : '';
     await ActivityModel.log(userId, `updated status to ${label}${detail}`, icon);
+
+    // Real-time: push attendance update to all company members
+    if (req.user.company_id) {
+      sendToCompany(req.user.company_id, 'attendance_updated', {
+        userId, status, note,
+        userName: req.user.full_name || req.user.username
+      });
+    }
+
     return res.json({ success: true, message: 'Attendance updated', data: { attendance: record } });
   } catch (err) {
     console.error('updateAttendance error:', err);

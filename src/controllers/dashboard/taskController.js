@@ -1,6 +1,7 @@
 // ✅ CORRECT import - use db instead of pool
 import TaskModel from '../../models/Taskmodel.js';
-import db from '../../config/db.js';  // Changed from pool to db
+import db from '../../config/db.js';
+import { sendToUser, sendToCompany } from '../../utils/sse.js';
 
 // ✅ Fixed tryLog function to use db.raw() for dynamic query
 const tryLog = async (userId, action) => {
@@ -70,6 +71,14 @@ export const createTask = async (req, res) => {
     }
 
     await tryLog(req.user.id, `assigned task "${title}" to user #${assigned_to}`);
+
+    // Real-time: notify assigned user
+    sendToUser(assigned_to, 'task_assigned', { task, message: `New task assigned: "${title}"` });
+    // Real-time: notify all company members (team view update)
+    if (req.user.company_id) {
+      sendToCompany(req.user.company_id, 'tasks_updated', { action: 'created', task });
+    }
+
     return res.status(201).json({ success: true, message: 'Task created', data: { task } });
   } catch (err) {
     console.error('createTask error:', err);
@@ -93,6 +102,13 @@ export const updateTaskStatus = async (req, res) => {
 
     const updated = await TaskModel.updateStatus(req.params.id, status);
     await tryLog(req.user.id, `updated task "${task.title}" to ${status}`);
+
+    // Real-time: notify task creator and company
+    sendToUser(task.assigned_by, 'task_status_updated', { task: updated, message: `Task "${task.title}" updated to ${status}` });
+    if (req.user.company_id) {
+      sendToCompany(req.user.company_id, 'tasks_updated', { action: 'status_changed', task: updated });
+    }
+
     return res.json({ success: true, message: 'Status updated', data: { task: updated } });
   } catch (err) {
     console.error('updateTaskStatus error:', err);

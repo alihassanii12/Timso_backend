@@ -1,11 +1,43 @@
 import express from 'express';
 import { authenticate, adminOnly } from '../middleware/authMiddleware.js';
 import UserModel from '../models/userModel.js';
+import { raw } from '../config/db.js';
+import { sendToUser } from '../utils/sse.js';
 
 const router = express.Router();
-
-// All admin routes require authentication and admin role
 router.use(authenticate, adminOnly);
+
+// Get company members (admin's company only)
+router.get('/company/members', async (req, res) => {
+  try {
+    const companyId = req.user.company_id;
+    if (!companyId) return res.json({ success: true, users: [] });
+    const result = await raw(
+      `SELECT id, email, username, full_name, role, profile_picture, is_active, created_at, last_login
+       FROM users WHERE company_id = $1 ORDER BY full_name`,
+      [companyId]
+    );
+    res.json({ success: true, users: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Remove member from company
+router.patch('/company/members/:userId/remove', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (String(userId) === String(req.user.id)) {
+      return res.status(400).json({ success: false, message: 'Cannot remove yourself' });
+    }
+    await raw('UPDATE users SET company_id = NULL WHERE id = $1 AND company_id = $2', [userId, req.user.company_id]);
+    // Notify removed user
+    sendToUser(userId, 'removed_from_company', { message: 'You have been removed from the company.' });
+    res.json({ success: true, message: 'Member removed' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
 
 // Get all users
 router.get('/users', async (req, res) => {
