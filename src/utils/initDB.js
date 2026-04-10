@@ -262,6 +262,18 @@ export const initializeDatabase = async () => {
             )
         `);
 
+        await q(`
+            CREATE TABLE IF NOT EXISTS resign_requests (
+                id         SERIAL PRIMARY KEY,
+                user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+                status     VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW(),
+                UNIQUE(user_id, company_id) DEFERRABLE INITIALLY DEFERRED
+            )
+        `);
+
         console.log('✅ All tables ready');
 
         // ── ALTER: add missing columns ──────────────────────────────
