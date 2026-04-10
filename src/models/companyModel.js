@@ -45,7 +45,8 @@ class CompanyModel {
 
   static async getApplications(companyId) {
     const result = await query`
-      SELECT ca.*, u.full_name, u.email, u.username
+      SELECT ca.*, u.full_name, u.email, u.username, u.profile_picture,
+             u.bio, u.skills, u.experience, u.location, u.phone_number, u.cv_url
       FROM company_applications ca
       JOIN users u ON ca.user_id = u.id
       WHERE ca.company_id = ${companyId} AND ca.status = 'pending'
