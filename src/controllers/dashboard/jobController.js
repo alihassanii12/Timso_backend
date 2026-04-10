@@ -162,8 +162,16 @@ export const getMyApplications = async (req, res) => {
 // GET /api/jobs/:id/applications — admin: applicants for a job
 export const getJobApplications = async (req, res) => {
   try {
-    const applications = await JobModel.getApplications(req.params.id);
-    return res.json({ success: true, data: { applications } });
+    const result = await db.raw(
+      `SELECT ja.*, u.full_name, u.email, u.username, u.profile_picture,
+              u.bio, u.skills, u.experience, u.location, u.phone_number, u.cv_url
+       FROM job_applications ja
+       JOIN users u ON u.id = ja.user_id
+       WHERE ja.job_id = $1
+       ORDER BY ja.created_at DESC`,
+      [req.params.id]
+    );
+    return res.json({ success: true, data: { applications: result.rows } });
   } catch (err) {
     console.error('getJobApplications error:', err);
     return res.status(500).json({ success: false, message: 'Internal server error' });

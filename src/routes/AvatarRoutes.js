@@ -10,10 +10,10 @@ router.use(authenticate);
 /* ── multer — memory only, no disk ── */
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits:  { fileSize: 2 * 1024 * 1024 },
+  limits:  { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_, file, cb) => {
-    const ok = ['image/jpeg','image/png','image/webp','image/gif'].includes(file.mimetype);
-    cb(ok ? null : new Error('Only jpg/png/webp/gif allowed'), ok);
+    const ok = ['image/jpeg','image/png','image/webp','image/gif','application/pdf'].includes(file.mimetype);
+    cb(ok ? null : new Error('Only jpg/png/webp/gif/pdf allowed'), ok);
   },
 });
 
@@ -67,6 +67,20 @@ router.get('/file/:userId', async (req, res) => {
   } catch (err) {
     console.error('Error fetching avatar:', err);
     res.status(500).json({ success: false, message: 'Error fetching avatar' });
+  }
+});
+
+// POST /api/avatar/cv — upload CV as base64
+router.post('/cv', upload.single('cv'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+    const userId = req.user.id;
+    // Store as base64 data URL
+    const b64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    await db.raw('UPDATE users SET cv_url=$1, updated_at=NOW() WHERE id=$2', [b64, userId]);
+    return res.json({ success: true, data: { cv_url: b64 } });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 

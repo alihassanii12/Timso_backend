@@ -287,6 +287,12 @@ export const initializeDatabase = async () => {
         // password_reset_token alias (used in authController)
         await q(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token TEXT`);
         await q(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMP`);
+        // Profile fields
+        await q(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT`);
+        await q(`ALTER TABLE users ADD COLUMN IF NOT EXISTS skills TEXT`);
+        await q(`ALTER TABLE users ADD COLUMN IF NOT EXISTS experience TEXT`);
+        await q(`ALTER TABLE users ADD COLUMN IF NOT EXISTS location VARCHAR(255)`);
+        await q(`ALTER TABLE users ADD COLUMN IF NOT EXISTS cv_url TEXT`);
 
         console.log('✅ Column migrations done');
 

@@ -36,12 +36,21 @@ router.get('/me',                 authenticate, getCurrentUser);
 router.put('/change-password',    authenticate, changePassword);
 router.put('/profile',            authenticate, async (req, res) => {
   try {
-    const { fullName, username, phoneNumber } = req.body;
+    const { fullName, username, phoneNumber, bio, skills, experience, location } = req.body;
     const { raw } = await import('../config/db.js');
     const result = await raw(
-      `UPDATE users SET full_name=COALESCE($1,full_name), username=COALESCE($2,username), phone_number=COALESCE($3,phone_number), updated_at=NOW()
-       WHERE id=$4 RETURNING id, email, username, full_name, role, company_id, profile_picture`,
-      [fullName || null, username || null, phoneNumber || null, req.user.id]
+      `UPDATE users SET
+        full_name=COALESCE($1,full_name),
+        username=COALESCE($2,username),
+        phone_number=COALESCE($3,phone_number),
+        bio=COALESCE($4,bio),
+        skills=COALESCE($5,skills),
+        experience=COALESCE($6,experience),
+        location=COALESCE($7,location),
+        updated_at=NOW()
+       WHERE id=$8
+       RETURNING id, email, username, full_name, role, company_id, profile_picture, bio, skills, experience, location, phone_number`,
+      [fullName||null, username||null, phoneNumber||null, bio||null, skills||null, experience||null, location||null, req.user.id]
     );
     res.json({ success: true, user: result.rows[0] });
   } catch (err) {
