@@ -299,6 +299,10 @@ export const initializeDatabase = async () => {
         // Fix resign_requests: drop old unique constraint, add partial index
         await q(`ALTER TABLE resign_requests DROP CONSTRAINT IF EXISTS resign_requests_user_id_company_id_key`);
         await q(`CREATE UNIQUE INDEX IF NOT EXISTS idx_resign_pending ON resign_requests(user_id, company_id) WHERE status = 'pending'`);
+        // OAuth columns
+        await q(`ALTER TABLE users ADD COLUMN IF NOT EXISTS oauth_provider VARCHAR(50)`);
+        await q(`ALTER TABLE users ADD COLUMN IF NOT EXISTS oauth_provider_id VARCHAR(255)`);
+        await q(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password VARCHAR(255) DEFAULT NULL`);
 
         console.log('✅ Column migrations done');
 
