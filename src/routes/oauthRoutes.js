@@ -116,18 +116,36 @@ async function issueTokensAndRedirect(req, res, data) {
 }
 
 // ── Google routes ────────────────────────────────────────────────────────────
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'], session: false }));
-router.get('/google/callback',
-  passport.authenticate('google', { session: false, failureRedirect: `${FRONTEND}/login?error=oauth` }),
-  (req, res) => issueTokensAndRedirect(req, res, req.user)
-);
+router.get('/google', (req, res, next) => {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    return res.redirect(`${FRONTEND}/login?error=google_not_configured`);
+  }
+  passport.authenticate('google', { scope: ['profile', 'email'], session: false })(req, res, next);
+});
+router.get('/google/callback', (req, res, next) => {
+  if (!process.env.GOOGLE_CLIENT_ID) return res.redirect(`${FRONTEND}/login?error=oauth`);
+  passport.authenticate('google', { session: false, failureRedirect: `${FRONTEND}/login?error=oauth` }, (err, user) => {
+    if (err || !user) return res.redirect(`${FRONTEND}/login?error=oauth`);
+    req.user = user;
+    issueTokensAndRedirect(req, res, user);
+  })(req, res, next);
+});
 
 // ── GitHub routes ────────────────────────────────────────────────────────────
-router.get('/github', passport.authenticate('github', { scope: ['user:email'], session: false }));
-router.get('/github/callback',
-  passport.authenticate('github', { session: false, failureRedirect: `${FRONTEND}/login?error=oauth` }),
-  (req, res) => issueTokensAndRedirect(req, res, req.user)
-);
+router.get('/github', (req, res, next) => {
+  if (!process.env.GITHUB_CLIENT_ID) {
+    return res.redirect(`${FRONTEND}/login?error=github_not_configured`);
+  }
+  passport.authenticate('github', { scope: ['user:email'], session: false })(req, res, next);
+});
+router.get('/github/callback', (req, res, next) => {
+  if (!process.env.GITHUB_CLIENT_ID) return res.redirect(`${FRONTEND}/login?error=oauth`);
+  passport.authenticate('github', { session: false, failureRedirect: `${FRONTEND}/login?error=oauth` }, (err, user) => {
+    if (err || !user) return res.redirect(`${FRONTEND}/login?error=oauth`);
+    req.user = user;
+    issueTokensAndRedirect(req, res, user);
+  })(req, res, next);
+});
 
 // ── Set role after OAuth (for new users) ────────────────────────────────────
 router.post('/set-role', async (req, res) => {
