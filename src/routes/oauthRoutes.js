@@ -7,7 +7,7 @@ import { generateAccessToken, generateRefreshToken } from '../utils/tokenUtils.j
 
 const router = express.Router();
 
-const FRONTEND = process.env.FRONTEND_URL || 'https://timeso.vercel.app';
+const FRONTEND = process.env.FRONTEND_URL || 'https://timso.vercel.app';
 const API_BASE = process.env.API_BASE_URL || 'https://timso-backend-n5w1.vercel.app';
 
 // ── Helper: find or create OAuth user ──────────────────────────────────────
