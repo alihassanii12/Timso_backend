@@ -293,6 +293,8 @@ export const initializeDatabase = async () => {
         await q(`ALTER TABLE users ADD COLUMN IF NOT EXISTS experience TEXT`);
         await q(`ALTER TABLE users ADD COLUMN IF NOT EXISTS location VARCHAR(255)`);
         await q(`ALTER TABLE users ADD COLUMN IF NOT EXISTS cv_url TEXT`);
+        // Company logo
+        await q(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo_url TEXT`);
 
         console.log('✅ Column migrations done');
 

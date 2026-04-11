@@ -84,6 +84,30 @@ router.post('/cv', upload.single('cv'), async (req, res) => {
   }
 });
 
+// POST /api/avatar/company-logo — admin uploads company logo
+router.post('/company-logo', upload.single('logo'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+    if (req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Admin only' });
+
+    const webpBuffer = await sharp(req.file.buffer)
+      .resize(200, 200, { fit: 'cover', position: 'centre' })
+      .webp({ quality: 85 })
+      .toBuffer();
+
+    const base64Logo = `data:image/webp;base64,${webpBuffer.toString('base64')}`;
+
+    await db.raw(
+      'UPDATE companies SET logo_url=$1, updated_at=NOW() WHERE admin_id=$2',
+      [base64Logo, req.user.id]
+    );
+
+    return res.json({ success: true, data: { logo_url: base64Logo } });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // DELETE /api/avatar
 router.delete('/', async (req, res) => {
   try {

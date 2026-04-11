@@ -18,7 +18,7 @@ class CompanyModel {
   }
 
   static async findAll() {
-    const result = await query`SELECT * FROM companies ORDER BY name ASC`;
+    const result = await query`SELECT id, name, description, admin_id, logo_url, created_at FROM companies ORDER BY name ASC`;
     return result.rows;
   }
 
