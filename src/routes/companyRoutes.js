@@ -48,14 +48,24 @@ router.post('/resign', authenticate, async (req, res) => {
     const companyId = req.user.company_id;
     if (!companyId) return res.status(400).json({ success: false, message: 'Not in a company' });
 
-    // Upsert resign request
+    // Delete any old non-pending request, then insert/update pending
     await raw(
-      `INSERT INTO resign_requests (user_id, company_id, status, created_at, updated_at)
-       VALUES ($1, $2, 'pending', NOW(), NOW())
-       ON CONFLICT (user_id, company_id) WHERE status = 'pending'
-       DO UPDATE SET updated_at = NOW()`,
+      `DELETE FROM resign_requests WHERE user_id = $1 AND company_id = $2 AND status IN ('approved','rejected')`,
       [userId, companyId]
     );
+    // Insert if no pending exists, otherwise update timestamp
+    const existing = await raw(
+      `SELECT id FROM resign_requests WHERE user_id = $1 AND company_id = $2 AND status = 'pending'`,
+      [userId, companyId]
+    );
+    if (existing.rows.length === 0) {
+      await raw(
+        `INSERT INTO resign_requests (user_id, company_id, status, created_at, updated_at) VALUES ($1, $2, 'pending', NOW(), NOW())`,
+        [userId, companyId]
+      );
+    } else {
+      await raw(`UPDATE resign_requests SET updated_at = NOW() WHERE id = $1`, [existing.rows[0].id]);
+    }
 
     // Get company admin
     const companyRes = await raw(`SELECT admin_id FROM companies WHERE id = $1`, [companyId]);

@@ -269,10 +269,11 @@ export const initializeDatabase = async () => {
                 company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
                 status     VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
                 created_at TIMESTAMP DEFAULT NOW(),
-                updated_at TIMESTAMP DEFAULT NOW(),
-                UNIQUE(user_id, company_id) DEFERRABLE INITIALLY DEFERRED
+                updated_at TIMESTAMP DEFAULT NOW()
             )
         `);
+        // Ensure only one pending resign per user+company
+        await q(`CREATE UNIQUE INDEX IF NOT EXISTS idx_resign_pending ON resign_requests(user_id, company_id) WHERE status = 'pending'`);
 
         console.log('✅ All tables ready');
 
@@ -295,6 +296,9 @@ export const initializeDatabase = async () => {
         await q(`ALTER TABLE users ADD COLUMN IF NOT EXISTS cv_url TEXT`);
         // Company logo
         await q(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo_url TEXT`);
+        // Fix resign_requests: drop old unique constraint, add partial index
+        await q(`ALTER TABLE resign_requests DROP CONSTRAINT IF EXISTS resign_requests_user_id_company_id_key`);
+        await q(`CREATE UNIQUE INDEX IF NOT EXISTS idx_resign_pending ON resign_requests(user_id, company_id) WHERE status = 'pending'`);
 
         console.log('✅ Column migrations done');
 
