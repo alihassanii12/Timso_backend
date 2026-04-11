@@ -475,6 +475,12 @@ export const getCurrentUser = async (req, res) => {
         createdAt: user.created_at,
         profile_picture: user.profile_picture || null,
         company_id: user.company_id || null,
+        bio: user.bio || null,
+        skills: user.skills || null,
+        experience: user.experience || null,
+        location: user.location || null,
+        phone_number: user.phone_number || null,
+        cv_url: user.cv_url || null,
       }
     });
 
