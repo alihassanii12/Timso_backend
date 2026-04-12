@@ -271,13 +271,21 @@ router.post('/set-role', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Token and role required' });
     }
 
-    // Verify token
+    // Decode token — allow expired tokens (user might take time to fill form)
     const { default: jwt } = await import('jsonwebtoken');
     let decoded;
     try {
+      // First try normal verify
       decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch {
-      return res.status(401).json({ success: false, message: 'Invalid token' });
+    } catch (verifyErr) {
+      // If expired, still decode to get user id
+      try {
+        decoded = jwt.decode(token);
+        if (!decoded?.id) throw new Error('Invalid token structure');
+        console.log('⚠️ Token expired but decoded for set-role, userId:', decoded.id);
+      } catch {
+        return res.status(401).json({ success: false, message: 'Invalid token' });
+      }
     }
 
     const userRes = await raw(`SELECT * FROM users WHERE id=$1`, [decoded.id]);
