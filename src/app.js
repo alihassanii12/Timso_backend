@@ -17,7 +17,6 @@ import companyRoutes      from "./routes/companyRoutes.js";
 import jobRoutes          from "./routes/jobRoutes.js";
 import sseRoutes          from "./routes/sseRoutes.js";
 import { activityRouter, notificationRouter } from "./routes/MiscRoutes.js";
-import oauthRoutes        from "./routes/oauthRoutes.js";
 import corsMiddleware     from "./cors.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -63,7 +62,6 @@ app.use("/api/jobs",          jobRoutes);
 app.use("/api/sse",           sseRoutes);
 app.use("/api/activity",      activityRouter);
 app.use("/api/notifications", notificationRouter);
-app.use("/api/oauth",         oauthRoutes);
 
 app.get('/health', (req, res) => {
   res.json({

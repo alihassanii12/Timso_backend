@@ -335,7 +335,7 @@ export const login = async (req, res) => {
     if (!user.password) {
       return res.status(401).json({
         success: false,
-        message: "This account uses Google/GitHub login. Please sign in with OAuth."
+        message: "This account was created via social login. Please use Google or GitHub to sign in."
       });
     }
 
