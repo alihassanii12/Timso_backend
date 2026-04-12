@@ -101,10 +101,17 @@ async function issueTokensAndRedirect(req, res, data) {
   // Build redirect URL based on user state
   let redirectUrl;
   
-  if (user.role === 'pending' || isNew) {
+  // New user OR role is still pending → needs role selection
+  if (isNew || user.role === 'pending' || !user.role) {
     redirectUrl = `${FRONTEND_URL}/oauth-complete?token=${encodeURIComponent(accessToken)}&new=1`;
   } else if (user.role === 'admin') {
-    redirectUrl = `${FRONTEND_URL}/oauth-complete?token=${encodeURIComponent(accessToken)}&role=admin`;
+    // Existing admin — check if company is set up
+    if (!user.company_id) {
+      // Admin but no company yet → go to company setup
+      redirectUrl = `${FRONTEND_URL}/oauth-complete?token=${encodeURIComponent(accessToken)}&new=1&preset=admin`;
+    } else {
+      redirectUrl = `${FRONTEND_URL}/oauth-complete?token=${encodeURIComponent(accessToken)}&role=admin`;
+    }
   } else if (user.company_id) {
     redirectUrl = `${FRONTEND_URL}/oauth-complete?token=${encodeURIComponent(accessToken)}&role=user&has_company=1`;
   } else {
