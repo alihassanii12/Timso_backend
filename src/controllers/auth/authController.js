@@ -331,6 +331,14 @@ export const login = async (req, res) => {
       });
     }
 
+    // OAuth-only users have no password
+    if (!user.password) {
+      return res.status(401).json({
+        success: false,
+        message: "This account uses Google/GitHub login. Please sign in with OAuth."
+      });
+    }
+
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       await UserModel.handleFailedLogin(loginIdentifier, req.ip, req.get('user-agent'));
